@@ -51,7 +51,7 @@ class Domain:
 
     @property
     def gold_schema(self) -> str:
-        """Schema consumers read from; only ever replaced by a successful publish."""
+        """Schema consumers read from: one partition per published batch (column _batch_id)."""
         return f"{self.name}_gold"
 
     @property

@@ -1,6 +1,6 @@
 """Stage functions shared by the Airflow DAGs, the CLI and the tests.
 
-    load -> bronze -> silver -> gold (built in <domain>_gold_staging) -> publish
+    load -> bronze -> silver -> gold (built in <domain>_gold_staging) -> publish (upsert into <domain>_gold)
 
 Each stage either returns a passing StageResult or raises QualityGateError, and writes
 its verdict to data/reports/<domain>/<batch>/<stage>.json either way.
@@ -97,8 +97,13 @@ def build(domain_name: str, layer: str, batch_id: str) -> StageResult:
 
 @_reported
 def publish(domain_name: str, batch_id: str) -> StageResult:
-    """Expose the audited gold staging schema to consumers."""
+    """Add the audited batch to the consumer-facing gold history."""
     return dbt_runner.publish_gold(load_domain(domain_name).name, batch_id)
+
+
+def rollback(domain_name: str, batch_id: str) -> StageResult:
+    """Unpublish a batch from gold (e.g. a bad batch that slipped through a missing rule)."""
+    return dbt_runner.rollback_gold(load_domain(domain_name).name, batch_id)
 
 
 def run_pipeline(domain_name: str, batch_id: str, landing_dir: Path | None = None) -> list[StageResult]:

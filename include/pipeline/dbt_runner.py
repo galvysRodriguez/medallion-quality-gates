@@ -146,16 +146,27 @@ def build_layer(domain: str, layer: str, batch_id: str) -> StageResult:
     return result
 
 
-def publish_gold(domain: str, batch_id: str) -> StageResult:
-    """Atomically swap `<domain>_gold_staging` into `<domain>_gold`."""
-    target_path = DBT_PROJECT_DIR / "target" / domain / "publish"
-    proc = _invoke(["run-operation", "publish_gold", "--args", json.dumps({"domain": domain})], target_path)
+def _operation(domain: str, macro: str, batch_id: str) -> StageResult:
+    validate_batch_id(batch_id)
+    target_path = DBT_PROJECT_DIR / "target" / domain / "operations"
+    args = json.dumps({"domain": domain, "batch_id": batch_id})
+    proc = _invoke(["run-operation", macro, "--args", args], target_path)
     ok = proc.returncode == 0
     result = StageResult(
         domain, "publish", batch_id, passed=ok,
-        results=[RuleResult("publish_gold", "operation.publish_gold", "operation",
+        results=[RuleResult(macro, f"operation.{macro}", "operation",
                             "success" if ok else "error", message=None if ok else proc.stdout[-2000:])],
     )
     if not ok:
         raise QualityGateError(result)
     return result
+
+
+def publish_gold(domain: str, batch_id: str) -> StageResult:
+    """Upsert the audited batch from `<domain>_gold_staging` into `<domain>_gold`."""
+    return _operation(domain, "publish_gold", batch_id)
+
+
+def rollback_gold(domain: str, batch_id: str) -> StageResult:
+    """Remove a published batch from every `<domain>_gold` table."""
+    return _operation(domain, "rollback_gold", batch_id)

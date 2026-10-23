@@ -29,10 +29,23 @@ def gold_batches(conn, domain: str) -> set[str]:
     return batches
 
 
+def row_counts(conn, domain: str, batch_id: str) -> dict[str, int]:
+    schema = load_domains()[domain].gold_schema
+    tables = [r[0] for r in conn.execute(
+        "select table_name from information_schema.tables where table_schema = %s", (schema,)
+    )]
+    return {
+        t: conn.execute(f'select count(*) from "{schema}"."{t}" where _batch_id = %s', (batch_id,)).fetchone()[0]
+        for t in tables
+    }
+
+
 @pytest.fixture(scope="module")
 def published(warehouse):
-    """Publish a clean baseline batch for every domain."""
+    """Start from an empty gold history and publish a clean baseline batch for every domain."""
     for domain in DOMAINS:
+        for suffix in ("gold", "gold_staging", "gold_previous"):
+            warehouse.execute(f"drop schema if exists {domain}_{suffix} cascade")
         generate(domain, BASELINE)
         orchestration.run_pipeline(domain, BASELINE)
     return warehouse
@@ -70,11 +83,25 @@ def test_corrupted_batch_is_blocked(published, domain, scenario):
     assert summary["failed_stage"] == expected.expected_stage
 
 
-def test_new_clean_batch_replaces_gold_and_keeps_previous(published):
+def test_gold_keeps_history_and_republishing_is_idempotent(published):
     generate("fintech", "2026-01-17")
     orchestration.run_pipeline("fintech", "2026-01-17")
-    assert gold_batches(published, "fintech") == {"2026-01-17"}
-    (exists,) = published.execute(
-        "select count(*) from pg_namespace where nspname = 'fintech_gold_previous'"
-    ).fetchone()
-    assert exists == 1
+    assert gold_batches(published, "fintech") == {BASELINE, "2026-01-17"}
+    first = row_counts(published, "fintech", "2026-01-17")
+    assert all(first.values())
+
+    orchestration.run_pipeline("fintech", "2026-01-17")  # reprocessing replaces the partition
+    assert row_counts(published, "fintech", "2026-01-17") == first
+
+    orchestration.rollback("fintech", "2026-01-17")
+    assert gold_batches(published, "fintech") == {BASELINE}
+
+
+def test_publish_refuses_a_stale_staging_schema(published):
+    # Staging holds BASELINE's audited tables only if gold was last built for it; publishing
+    # any other batch id from it must fail instead of mislabelling data.
+    generate("ecommerce", BASELINE)
+    orchestration.run_pipeline("ecommerce", BASELINE)
+    with pytest.raises(QualityGateError, match="another batch"):
+        orchestration.publish("ecommerce", "2026-01-18")
+    assert gold_batches(published, "ecommerce") == {BASELINE}

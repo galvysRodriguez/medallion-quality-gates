@@ -1,4 +1,4 @@
-"""CLI: python -m pipeline {domains,scenarios,generate,run} ...
+"""CLI: python -m pipeline {domains,scenarios,generate,run,rollback} ...
 
 Run from the project root with include/ on PYTHONPATH (the Makefile does this).
 """
@@ -36,6 +36,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("domain")
     p.add_argument("--batch", help="defaults to the latest landed batch")
 
+    p = sub.add_parser("rollback", help="remove a published batch from <domain>_gold")
+    p.add_argument("domain")
+    p.add_argument("--batch", required=True)
+
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
@@ -62,6 +66,12 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         finally:
             print(json.dumps(orchestration.summarize(args.domain, batch_id), indent=2))
+    elif args.command == "rollback":
+        try:
+            orchestration.rollback(args.domain, args.batch)
+        except QualityGateError as exc:
+            logging.error("%s", exc)
+            return 1
     return 0
 
 
