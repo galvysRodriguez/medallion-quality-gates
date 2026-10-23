@@ -65,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
             logging.error("%s", exc)
             return 1
         finally:
-            print(json.dumps(orchestration.summarize(args.domain, batch_id), indent=2))
+            print(json.dumps(orchestration.finalize(args.domain, batch_id), indent=2))
     elif args.command == "rollback":
         try:
             orchestration.rollback(args.domain, args.batch)

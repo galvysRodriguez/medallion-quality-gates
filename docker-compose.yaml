@@ -36,6 +36,9 @@ x-airflow-common:
     # The domain-agnostic pipeline package (include/pipeline) used by the DAGs
     PYTHONPATH: /opt/airflow/include
     PIPELINE_DATA_DIR: /opt/airflow/data
+    # Chat webhook for blocked batches (see include/pipeline/alerts.py); empty = log only
+    ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+    ALERT_ON_WARNINGS: ${ALERT_ON_WARNINGS:-false}
   volumes:
     - ./dags:/opt/airflow/dags:z
     - ./logs:/opt/airflow/logs:z

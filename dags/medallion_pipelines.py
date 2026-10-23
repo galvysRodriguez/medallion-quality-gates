@@ -67,7 +67,7 @@ def build_dag(domain: Domain):
 
         @task(trigger_rule="all_done")
         def quality_report(batch_id: str) -> dict:
-            summary = orchestration.summarize(domain.name, batch_id)
+            summary = orchestration.finalize(domain.name, batch_id)  # report + dq_audit history + alert
             log.info("quality report: %s", summary)
             if summary["status"] != "published":
                 raise AirflowFailException(

@@ -105,3 +105,29 @@ def test_publish_refuses_a_stale_staging_schema(published):
     with pytest.raises(QualityGateError, match="another batch"):
         orchestration.publish("ecommerce", "2026-01-18")
     assert gold_batches(published, "ecommerce") == {BASELINE}
+
+
+def test_runs_and_rule_results_are_kept_in_dq_audit(published):
+    generate("fintech", "2026-01-19_audit", "negative_amounts")
+    with pytest.raises(QualityGateError):
+        orchestration.run_pipeline("fintech", "2026-01-19_audit")
+    summary = orchestration.finalize("fintech", "2026-01-19_audit")
+
+    status, failed_stage, failed_rules = published.execute(
+        "select status, failed_stage, failed_rules from dq_audit.pipeline_runs where run_id = %s",
+        (summary["run_id"],),
+    ).fetchone()
+    assert (status, failed_stage) == ("blocked", "silver")
+    assert "fintech_txn_amount_positive" in failed_rules
+
+    rules = dict(published.execute(
+        "select rule, status from dq_audit.rule_results where run_id = %s and stage = 'silver'",
+        (summary["run_id"],),
+    ).fetchall())
+    assert rules["fintech_txn_amount_positive"] == "fail"
+    assert rules["fintech_txn_id_unique"] == "pass"
+
+    (failed,) = published.execute(
+        "select failed from dq_audit.rule_health where domain = 'fintech' and rule = 'fintech_txn_amount_positive'"
+    ).fetchone()
+    assert failed >= 1

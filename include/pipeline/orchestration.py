@@ -2,8 +2,9 @@
 
     load -> bronze -> silver -> gold (built in <domain>_gold_staging) -> publish (upsert into <domain>_gold)
 
-Each stage either returns a passing StageResult or raises QualityGateError, and writes
-its verdict to data/reports/<domain>/<batch>/<stage>.json either way.
+Each stage either returns a passing StageResult or raises QualityGateError, and records
+its verdict either way: data/reports/<domain>/<batch>/<stage>.json plus the warehouse
+history in dq_audit (see quality_log). `finalize` closes a run: report, history, alert.
 """
 
 from __future__ import annotations
@@ -12,10 +13,11 @@ import functools
 import json
 import logging
 import shutil
+import uuid
 from datetime import date, datetime
 from pathlib import Path
 
-from pipeline import dbt_runner
+from pipeline import alerts, dbt_runner, quality_log
 from pipeline.config import LANDING_DIR, LAYERS, REPORTS_DIR, load_domain, validate_batch_id
 from pipeline.dbt_runner import QualityGateError, RuleResult, StageResult
 from pipeline.loader import ContractError, load_batch
@@ -52,10 +54,20 @@ def _report_dir(domain: str, batch_id: str) -> Path:
     return REPORTS_DIR / domain / batch_id
 
 
+def _run_id(domain: str, batch_id: str, new: bool = False) -> str:
+    """Id shared by every stage of one run; `load` starts a new run."""
+    path = _report_dir(domain, batch_id) / "run.json"
+    if new or not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"run_id": str(uuid.uuid4())}))
+    return json.loads(path.read_text())["run_id"]
+
+
 def _write_report(result: StageResult) -> None:
     path = _report_dir(result.domain, result.batch_id) / f"{result.stage}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(result.to_dict(), indent=2, default=str))
+    quality_log.record_stage(result, _run_id(result.domain, result.batch_id))
 
 
 def _reported(fn):
@@ -76,6 +88,7 @@ def _reported(fn):
 def load(domain_name: str, batch_id: str, landing_dir: Path | None = None) -> StageResult:
     """Structural contract gate + load into <domain>_raw."""
     shutil.rmtree(_report_dir(domain_name, batch_id), ignore_errors=True)
+    _run_id(domain_name, batch_id, new=True)
     domain = load_domain(domain_name)
     try:
         counts = load_batch(domain, batch_id, landing_dir)
@@ -124,16 +137,29 @@ def summarize(domain_name: str, batch_id: str) -> dict:
         stages[stage] = json.loads(path.read_text()) if path.exists() else None
 
     failed_stage = next((s for s, r in stages.items() if r and not r["passed"]), None)
+    failed_results = [
+        r for r in (stages[failed_stage]["results"] if failed_stage else []) if r["status"] in ("fail", "error")
+    ]
     summary = {
+        "run_id": _run_id(domain_name, batch_id),
         "domain": domain_name,
         "batch_id": batch_id,
         "status": "published" if stages["publish"] and stages["publish"]["passed"] else "blocked",
         "failed_stage": failed_stage,
         "failed_rules": stages[failed_stage]["failed_rules"] if failed_stage else [],
+        "failures": {r["name"]: r["failures"] for r in failed_results},
         "warned_rules": sorted({w for r in stages.values() if r for w in r["warned_rules"]}),
         "stages": {s: (None if r is None else ("passed" if r["passed"] else "failed")) for s, r in stages.items()},
         "generated_at": datetime.now().isoformat(timespec="seconds"),
     }
     report_dir.mkdir(parents=True, exist_ok=True)
     (report_dir / "quality_report.json").write_text(json.dumps(summary, indent=2))
+    return summary
+
+
+def finalize(domain_name: str, batch_id: str) -> dict:
+    """End of a run: write quality_report.json, record it in dq_audit, alert if blocked."""
+    summary = summarize(domain_name, batch_id)
+    quality_log.record_run(summary, summary["run_id"])
+    alerts.notify(summary)
     return summary
