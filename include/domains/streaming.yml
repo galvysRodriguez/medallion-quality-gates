@@ -1,6 +1,12 @@
 domain: streaming
 description: Video/audio streaming — subscribers, content catalog and playback events.
-schedule: "@hourly"
+schedule: "@daily"
+# The batch is complete when the producer writes the marker; wait up to the timeout for it.
+arrival:
+  marker: _SUCCESS
+  timeout_minutes: 360
+  poke_minutes: 5
+  batch_lag_days: 1
 entities:
   users:
     file: users.json

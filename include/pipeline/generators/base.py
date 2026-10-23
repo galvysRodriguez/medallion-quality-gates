@@ -179,4 +179,6 @@ def write_batch(domain: Domain, batch_id: str, batch: GeneratedBatch, landing_di
         if name in batch.text_mutations:
             text = batch.text_mutations[name](text)
         (out_dir / entity.file).write_text(text, encoding="utf-8")
+    if domain.arrival.marker:  # written last, like a real producer signalling completion
+        (out_dir / domain.arrival.marker).write_text("")
     return out_dir

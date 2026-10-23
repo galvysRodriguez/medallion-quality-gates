@@ -59,6 +59,8 @@ def main(argv: list[str] | None = None) -> int:
         print(generate(args.domain, args.batch, args.scenario, args.rows, args.seed))
     elif args.command == "run":
         batch_id = orchestration.resolve_batch(args.domain, args.batch)
+        if not orchestration.batch_ready(args.domain, batch_id):
+            logging.warning("batch %s has not fully landed (missing folder or completion marker)", batch_id)
         try:
             orchestration.run_pipeline(args.domain, batch_id)
         except QualityGateError as exc:

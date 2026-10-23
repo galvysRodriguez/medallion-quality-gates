@@ -14,7 +14,7 @@ import json
 import logging
 import shutil
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from pipeline import alerts, dbt_runner, quality_log
@@ -30,24 +30,33 @@ STAGES = ("load", *LAYERS, "publish")
 def resolve_batch(
     domain_name: str,
     requested: str | None = None,
-    logical_date: date | datetime | None = None,
+    scheduled_for: date | datetime | None = None,
     landing_dir: Path | None = None,
 ) -> str:
-    """Explicit batch id > the run's logical date (YYYY-MM-DD) > latest landed batch."""
+    """Which batch a run processes.
+
+    Explicit batch id > scheduled run (its date minus the contract's batch_lag_days, which
+    may not have landed yet — see batch_ready) > latest batch that has landed.
+    """
     domain = load_domain(domain_name)
     root = (landing_dir or LANDING_DIR) / domain.name
     if requested:
-        batch_id = validate_batch_id(requested)
-    elif logical_date is not None:
-        batch_id = logical_date.strftime("%Y-%m-%d")
-    else:
-        batches = sorted(p.name for p in root.glob("*") if p.is_dir())
-        if not batches:
-            raise FileNotFoundError(f"no landing batches under {root}")
-        batch_id = batches[-1]
-    if not (root / batch_id).is_dir():
-        raise FileNotFoundError(f"landing batch {root / batch_id} does not exist")
-    return batch_id
+        return validate_batch_id(requested)
+    if scheduled_for is not None:
+        return (scheduled_for - timedelta(days=domain.arrival.batch_lag_days)).strftime("%Y-%m-%d")
+    batches = sorted(p.name for p in root.glob("*") if p.is_dir() and batch_ready(domain_name, p.name, landing_dir))
+    if not batches:
+        raise FileNotFoundError(f"no complete landing batches under {root}")
+    return batches[-1]
+
+
+def batch_ready(domain_name: str, batch_id: str, landing_dir: Path | None = None) -> bool:
+    """True once the batch folder exists and, if the contract names one, its completion marker."""
+    domain = load_domain(domain_name)
+    batch_dir = domain.batch_dir(batch_id, landing_dir)
+    if not batch_dir.is_dir():
+        return False
+    return domain.arrival.marker is None or (batch_dir / domain.arrival.marker).is_file()
 
 
 def _report_dir(domain: str, batch_id: str) -> Path:
@@ -144,7 +153,11 @@ def summarize(domain_name: str, batch_id: str) -> dict:
         "run_id": _run_id(domain_name, batch_id),
         "domain": domain_name,
         "batch_id": batch_id,
-        "status": "published" if stages["publish"] and stages["publish"]["passed"] else "blocked",
+        "status": (
+            "published" if stages["publish"] and stages["publish"]["passed"]
+            else "not_arrived" if stages["load"] is None
+            else "blocked"
+        ),
         "failed_stage": failed_stage,
         "failed_rules": stages[failed_stage]["failed_rules"] if failed_stage else [],
         "failures": {r["name"]: r["failures"] for r in failed_results},

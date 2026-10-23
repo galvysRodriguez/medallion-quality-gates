@@ -39,11 +39,22 @@ class Entity:
 
 
 @dataclass(frozen=True)
+class Arrival:
+    """How to tell that a landing batch is complete, and how long to wait for it."""
+
+    marker: str | None = None  # file the producer writes last (e.g. _SUCCESS); None = folder exists
+    timeout_minutes: int = 360
+    poke_minutes: int = 5
+    batch_lag_days: int = 1  # a scheduled run on day D processes batch D - lag
+
+
+@dataclass(frozen=True)
 class Domain:
     name: str
     description: str
     schedule: str | None
     entities: dict[str, Entity]
+    arrival: Arrival = Arrival()
 
     @property
     def raw_schema(self) -> str:
@@ -53,6 +64,11 @@ class Domain:
     def gold_schema(self) -> str:
         """Schema consumers read from: one partition per published batch (column _batch_id)."""
         return f"{self.name}_gold"
+
+    @property
+    def gold_asset_uri(self) -> str:
+        """Airflow Asset updated by every successful publish of this domain."""
+        return f"medallion://{self.name}/gold"
 
     @property
     def gold_staging_schema(self) -> str:
@@ -89,7 +105,11 @@ def load_domain_file(path: Path) -> Domain:
         entities[entity_name] = Entity(entity_name, entity["file"], fmt, columns)
     if not entities:
         raise ConfigError(f"{path.name}: no entities declared")
-    return Domain(name, spec.get("description", ""), spec.get("schedule"), entities)
+    arrival_spec = spec.get("arrival") or {}
+    unknown = set(arrival_spec) - set(Arrival.__dataclass_fields__)
+    if unknown:
+        raise ConfigError(f"{path.name}: unknown arrival setting(s) {', '.join(sorted(unknown))}")
+    return Domain(name, spec.get("description", ""), spec.get("schedule"), entities, Arrival(**arrival_spec))
 
 
 def load_domains(domains_dir: Path | None = None) -> dict[str, Domain]:

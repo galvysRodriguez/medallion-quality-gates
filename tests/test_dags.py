@@ -26,7 +26,13 @@ def test_one_medallion_dag_per_domain(dagbag):
 @pytest.mark.parametrize("domain", sorted(load_domains()))
 def test_gates_run_in_medallion_order(dagbag, domain):
     dag = dagbag.dags[f"medallion_{domain}"]
-    chain = ["resolve_batch", "load_raw", "bronze", "silver", "gold", "publish_gold"]
+    chain = ["resolve_batch", "wait_for_batch", "load_raw", "bronze", "silver", "gold", "publish_gold"]
     for upstream, downstream in zip(chain, chain[1:]):
         assert downstream in dag.get_task(upstream).downstream_task_ids
     assert dag.get_task("quality_report").trigger_rule == "all_done"
+    assert dag.get_task("wait_for_batch").mode == "reschedule"
+    assert [a.uri for a in dag.get_task("publish_gold").outlets] == [f"medallion://{domain}/gold"]
+
+
+def test_consumer_dag_is_scheduled_on_gold_assets(dagbag):
+    assert "gold_freshness" in dagbag.dag_ids

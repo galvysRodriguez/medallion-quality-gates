@@ -1,6 +1,12 @@
 domain: ecommerce
 description: Online store — customers, product catalog, orders and order lines.
 schedule: "@daily"
+# The batch is complete when the producer writes the marker; wait up to the timeout for it.
+arrival:
+  marker: _SUCCESS
+  timeout_minutes: 360
+  poke_minutes: 5
+  batch_lag_days: 1
 entities:
   customers:
     file: customers.csv

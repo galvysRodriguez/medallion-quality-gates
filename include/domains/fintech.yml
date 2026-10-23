@@ -4,6 +4,12 @@
 domain: fintech
 description: Core banking — customer accounts and their monetary transactions.
 schedule: "@daily"
+# The batch is complete when the producer writes the marker; wait up to the timeout for it.
+arrival:
+  marker: _SUCCESS
+  timeout_minutes: 360
+  poke_minutes: 5
+  batch_lag_days: 1
 entities:
   accounts:
     file: accounts.csv

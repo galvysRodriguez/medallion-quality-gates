@@ -19,6 +19,8 @@ log = logging.getLogger(__name__)
 
 def format_message(summary: dict) -> str | None:
     domain, batch = summary["domain"], summary["batch_id"]
+    if summary["status"] == "not_arrived":
+        return f":hourglass: [{domain}] batch {batch} did not land in time — nothing was processed."
     if summary["status"] != "published":
         rules = ", ".join(
             f"{rule} ({count} rows)" if count else rule
