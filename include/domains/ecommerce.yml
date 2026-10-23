@@ -1,0 +1,20 @@
+domain: ecommerce
+description: Online store — customers, product catalog, orders and order lines.
+schedule: "@daily"
+entities:
+  customers:
+    file: customers.csv
+    format: csv
+    columns: [customer_id, email, country, signup_date]
+  products:
+    file: products.json
+    format: json
+    columns: [sku, name, category, unit_price, active]
+  orders:
+    file: orders.csv
+    format: csv
+    columns: [order_id, customer_id, order_ts, status, shipping_country, total_amount]
+  order_items:
+    file: order_items.jsonl
+    format: jsonl
+    columns: [order_id, line_number, sku, quantity, unit_price, discount]

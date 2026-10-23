@@ -1,0 +1,5 @@
+# Local environment: dbt, the pipeline package and its tests, run from the host against localhost:5433
+-r docker/airflow/requirements-dbt.txt
+psycopg[binary]
+pyyaml
+pytest

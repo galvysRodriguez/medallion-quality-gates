@@ -1,0 +1,16 @@
+.env
+logs/*
+!logs/.gitkeep
+config/airflow.cfg
+__pycache__/
+*.pyc
+.venv/
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/.user.yml
+data/landing/*
+data/reports/*
+!data/**/.gitkeep
+.pytest_cache/
+graphify-out/

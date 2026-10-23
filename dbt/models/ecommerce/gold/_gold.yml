@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: gld_ecommerce__daily_sales
+    data_tests:
+      - unique_combination:
+          name: ecommerce_sales_grain_unique
+          arguments: {columns: [order_date, category]}
+      - expression_is_true:
+          name: ecommerce_sales_net_not_above_gross
+          arguments: {expression: "net_revenue >= 0 and net_revenue <= gross_revenue"}
+      - reconciles_with:
+          name: ecommerce_gold_revenue_reconciles
+          description: Gold revenue matches the silver orders it was built from.
+          arguments:
+            expression: sum(net_revenue)
+            compare_model: ref('slv_ecommerce__orders')
+            compare_expression: sum(items_net_total)
+            compare_filter: "status not in ('cancelled', 'refunded')"
+
+  - name: gld_ecommerce__daily_kpis
+    data_tests:
+      - row_count_between: {name: ecommerce_daily_kpis_not_empty, arguments: {min_value: 1}}
+    columns:
+      - name: average_order_value
+        data_tests:
+          - value_between:
+              name: ecommerce_daily_aov_within_bounds
+              description: >
+                A daily average order value above 5,000 has never been a real business day —
+                it signals a pricing/quantity bug or bulk fraud, even if every row looks valid.
+              arguments: {min_value: 1, max_value: 5000}

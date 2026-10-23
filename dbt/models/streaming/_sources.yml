@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: streaming_raw
+    description: Landing batches loaded as text by include/pipeline/loader.py.
+    schema: streaming_raw
+    tables:
+      - name: users
+      - name: content
+      - name: playback_events

@@ -1,0 +1,39 @@
+name: 'warehouse'
+version: '1.0.0'
+config-version: 2
+
+profile: 'warehouse'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+vars:
+  # Landing batch to process; the pipeline always passes it. Null = latest batch in raw.
+  batch_id: null
+  # Role granted read access to <domain>_gold on every publish (skipped if it doesn't exist).
+  gold_reader_role: gold_reader
+
+# Layout convention (no per-domain config needed — see macros/generate_schema_name.sql):
+#   models/<domain>/bronze -> <domain>_bronze  (views over the current raw batch, all text)
+#   models/<domain>/silver -> <domain>_silver  (typed, cleaned, deduplicated tables)
+#   models/<domain>/gold   -> <domain>_gold_staging, published to <domain>_gold
+models:
+  warehouse:
+    +materialized: table
+    +on_schema_change: sync_all_columns
+
+data_tests:
+  warehouse:
+    # Every rule halts the pipeline unless it explicitly sets `severity: warn`.
+    +severity: error
+    # Failing rows are kept in dq_audit.<rule name> for investigation.
+    +store_failures: true
+    +schema: dq_audit

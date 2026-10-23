@@ -1,0 +1,15 @@
+# Data contract for the fintech domain: what lands in data/landing/fintech/<batch>/.
+# The loader rejects a batch whose files are missing or lack any of these columns;
+# everything else (types, ranges, business rules) is enforced by dbt tests.
+domain: fintech
+description: Core banking — customer accounts and their monetary transactions.
+schedule: "@daily"
+entities:
+  accounts:
+    file: accounts.csv
+    format: csv
+    columns: [account_id, customer_name, country, currency, opened_at, status, credit_limit]
+  transactions:
+    file: transactions.jsonl
+    format: jsonl
+    columns: [transaction_id, account_id, txn_ts, txn_type, amount, currency, merchant_category, status]

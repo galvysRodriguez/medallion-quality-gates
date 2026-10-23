@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: brz_ecommerce__customers
+    data_tests:
+      - row_count_between: {name: ecommerce_bronze_customers_not_empty, arguments: {min_value: 1}}
+    columns:
+      - name: customer_id
+        data_tests: [{not_null: {name: ecommerce_bronze_customer_id_present}}]
+      - name: signup_date
+        data_tests: [{castable: {name: ecommerce_bronze_signup_date_is_date, arguments: {to: date}}}]
+
+  - name: brz_ecommerce__products
+    data_tests:
+      - row_count_between: {name: ecommerce_bronze_products_not_empty, arguments: {min_value: 1}}
+    columns:
+      - name: sku
+        data_tests: [{not_null: {name: ecommerce_bronze_sku_present}}]
+      - name: unit_price
+        data_tests: [{castable: {name: ecommerce_bronze_product_price_is_numeric, arguments: {to: numeric}}}]
+      - name: active
+        data_tests: [{castable: {name: ecommerce_bronze_product_active_is_boolean, arguments: {to: boolean}}}]
+
+  - name: brz_ecommerce__orders
+    data_tests:
+      - row_count_between: {name: ecommerce_bronze_orders_not_empty, arguments: {min_value: 1}}
+    columns:
+      - name: order_id
+        data_tests: [{not_null: {name: ecommerce_bronze_order_id_present}}]
+      - name: order_ts
+        data_tests: [{castable: {name: ecommerce_bronze_order_ts_is_timestamp, arguments: {to: timestamptz}}}]
+      - name: total_amount
+        data_tests:
+          - not_null: {name: ecommerce_bronze_order_total_present}
+          - castable: {name: ecommerce_bronze_order_total_is_numeric, arguments: {to: numeric}}
+
+  - name: brz_ecommerce__order_items
+    data_tests:
+      - row_count_between: {name: ecommerce_bronze_order_items_not_empty, arguments: {min_value: 1}}
+    columns:
+      - name: order_id
+        data_tests: [{not_null: {name: ecommerce_bronze_item_order_present}}]
+      - name: line_number
+        data_tests: [{castable: {name: ecommerce_bronze_item_line_is_integer, arguments: {to: integer}}}]
+      - name: quantity
+        data_tests:
+          - not_null: {name: ecommerce_bronze_item_quantity_present}
+          - castable: {name: ecommerce_bronze_item_quantity_is_integer, arguments: {to: integer}}
+      - name: unit_price
+        data_tests: [{castable: {name: ecommerce_bronze_item_price_is_numeric, arguments: {to: numeric}}}]
+      - name: discount
+        data_tests: [{castable: {name: ecommerce_bronze_item_discount_is_numeric, arguments: {to: numeric}}}]

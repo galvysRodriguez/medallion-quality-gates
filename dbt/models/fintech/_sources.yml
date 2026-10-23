@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: fintech_raw
+    description: Landing batches loaded as text by include/pipeline/loader.py (append-only, one _batch_id per load).
+    schema: fintech_raw
+    tables:
+      - name: accounts
+      - name: transactions

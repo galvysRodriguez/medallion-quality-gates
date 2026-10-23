@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: gld_fintech__account_daily_positions
+    description: Posted inflows/outflows per account and day.
+    data_tests:
+      - unique_combination:
+          name: fintech_position_grain_unique
+          arguments: {columns: [account_id, position_date]}
+      - expression_is_true:
+          name: fintech_no_overdraft_beyond_credit_limit
+          description: No account may end the day with a net outflow larger than its credit limit.
+          arguments: {expression: "net_flow >= -credit_limit"}
+      - reconciles_with:
+          name: fintech_gold_reconciles_with_silver
+          description: Every posted cent in silver is accounted for in gold.
+          arguments:
+            expression: sum(net_flow)
+            compare_model: ref('slv_fintech__transactions')
+            compare_expression: sum(signed_amount)
+            compare_filter: "status = 'posted'"
+
+  - name: gld_fintech__daily_summary
+    description: Daily money movement per currency — the consumer-facing KPI table.
+    data_tests:
+      - row_count_between: {name: fintech_daily_summary_not_empty, arguments: {min_value: 1}}
+      - expression_is_true:
+          name: fintech_summary_flows_consistent
+          arguments: {expression: "inflows >= 0 and outflows >= 0 and net_flow = inflows - outflows"}

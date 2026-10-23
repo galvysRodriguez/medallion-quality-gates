@@ -1,0 +1,3 @@
+# Installed into the Airflow environment (pinned by the Airflow constraints file).
+psycopg[binary]
+pytest

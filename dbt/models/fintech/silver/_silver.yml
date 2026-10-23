@@ -1,0 +1,94 @@
+version: 2
+
+models:
+  - name: slv_fintech__accounts
+    description: Typed, deduplicated accounts of the current batch.
+    data_tests:
+      - expression_is_true:
+          name: fintech_account_currency_matches_country
+          description: Accounts are opened in the local currency of their country.
+          arguments:
+            expression: >
+              (country, currency) in (('US', 'USD'), ('MX', 'MXN'), ('CO', 'COP'), ('ES', 'EUR'), ('BR', 'BRL'))
+    columns:
+      - name: account_id
+        data_tests:
+          - unique: {name: fintech_account_id_unique}
+      - name: status
+        data_tests:
+          - accepted_values:
+              name: fintech_account_status_valid
+              arguments: {values: [active, frozen, closed]}
+      - name: credit_limit
+        data_tests:
+          - value_between:
+              name: fintech_credit_limit_within_policy
+              description: Credit lines go from 0 to 100,000.
+              arguments: {min_value: 0, max_value: 100000}
+      - name: opened_at
+        data_tests:
+          - not_in_future: {name: fintech_account_opened_not_in_future}
+
+  - name: slv_fintech__transactions
+    description: Typed, deduplicated transactions of the current batch, enriched with their account.
+    data_tests:
+      - expression_is_true:
+          name: fintech_txn_currency_matches_account
+          description: A transaction is always booked in its account's currency (no implicit FX).
+          arguments: {expression: "currency = account_currency"}
+      - expression_is_true:
+          name: fintech_card_payment_has_merchant
+          description: Card payments must carry a merchant category code (MCC) for AML screening.
+          arguments: {expression: "txn_type <> 'card_payment' or merchant_category is not null"}
+      - expression_is_true:
+          name: fintech_posted_only_on_active_accounts
+          description: Frozen and closed accounts cannot have posted movements.
+          arguments: {expression: "status <> 'posted' or account_status = 'active'"}
+      - expression_is_true:
+          name: fintech_txn_amount_two_decimals
+          description: Amounts are expressed in cents; sub-cent precision indicates a broken upstream conversion.
+          arguments: {expression: "amount = round(amount, 2)"}
+    columns:
+      - name: transaction_id
+        data_tests:
+          - unique:
+              name: fintech_txn_id_unique
+              description: Same id with different content means a conflicting replay (exact replays are deduplicated).
+      - name: account_id
+        data_tests:
+          - relationships:
+              name: fintech_txn_account_exists
+              arguments: {to: ref('slv_fintech__accounts'), field: account_id}
+      - name: amount
+        data_tests:
+          - value_between:
+              name: fintech_txn_amount_positive
+              description: Amounts are positive; direction comes from txn_type.
+              arguments: {min_value: 0.01}
+          - value_between:
+              name: fintech_txn_amount_below_single_limit
+              description: Single movements above 10,000 require manual approval and never arrive in this feed.
+              arguments: {max_value: 10000}
+          - value_between:
+              name: fintech_txn_high_value_review
+              description: Movements above 5,000 are reported for review but do not stop the pipeline.
+              arguments: {max_value: 5000}
+              config: {severity: warn}
+      - name: currency
+        data_tests:
+          - accepted_values:
+              name: fintech_txn_currency_supported
+              arguments: {values: [USD, EUR, MXN, COP, BRL]}
+      - name: txn_type
+        data_tests:
+          - accepted_values:
+              name: fintech_txn_type_valid
+              arguments: {values: [deposit, withdrawal, transfer_in, transfer_out, card_payment, fee]}
+      - name: status
+        data_tests:
+          - accepted_values:
+              name: fintech_txn_status_valid
+              arguments: {values: [posted, pending, reversed]}
+      - name: txn_ts
+        data_tests:
+          - not_in_future: {name: fintech_txn_not_in_future}

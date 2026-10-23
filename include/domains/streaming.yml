@@ -1,0 +1,16 @@
+domain: streaming
+description: Video/audio streaming — subscribers, content catalog and playback events.
+schedule: "@hourly"
+entities:
+  users:
+    file: users.json
+    format: json
+    columns: [user_id, country, plan, signup_date]
+  content:
+    file: content.csv
+    format: csv
+    columns: [content_id, title, content_type, duration_seconds, release_date]
+  playback_events:
+    file: playback_events.jsonl
+    format: jsonl
+    columns: [event_id, user_id, content_id, event_ts, event_type, position_seconds, watch_seconds, device]

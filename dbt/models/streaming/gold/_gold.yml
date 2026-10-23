@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: gld_streaming__daily_content_engagement
+    data_tests:
+      - unique_combination:
+          name: streaming_engagement_grain_unique
+          arguments: {columns: [event_date, content_id]}
+      - reconciles_with:
+          name: streaming_gold_watch_time_reconciles
+          description: Watch hours in gold add up to the watch seconds in silver.
+          arguments:
+            expression: sum(watch_hours)
+            compare_model: ref('slv_streaming__playback_events')
+            compare_expression: sum(watch_seconds) / 3600.0
+            tolerance: 0.05
+    columns:
+      - name: completion_rate
+        data_tests:
+          - value_between: {name: streaming_completion_rate_valid, arguments: {min_value: 0, max_value: 1}}
+
+  - name: gld_streaming__daily_user_activity
+    data_tests:
+      - unique_combination:
+          name: streaming_user_activity_grain_unique
+          arguments: {columns: [event_date, user_id]}
+    columns:
+      - name: watch_seconds
+        data_tests:
+          - value_between:
+              name: streaming_user_daily_watch_time_possible
+              description: Nobody watches more than 24 hours in a day — shared or bot accounts, or duplicated events.
+              arguments: {min_value: 0, max_value: 86400}

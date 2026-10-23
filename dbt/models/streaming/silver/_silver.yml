@@ -1,0 +1,73 @@
+version: 2
+
+models:
+  - name: slv_streaming__users
+    columns:
+      - name: user_id
+        data_tests: [{unique: {name: streaming_user_id_unique}}]
+      - name: plan
+        data_tests:
+          - accepted_values: {name: streaming_user_plan_valid, arguments: {values: [free, basic, premium]}}
+
+  - name: slv_streaming__content
+    columns:
+      - name: content_id
+        data_tests: [{unique: {name: streaming_content_id_unique}}]
+      - name: content_type
+        data_tests:
+          - accepted_values:
+              name: streaming_content_type_valid
+              arguments: {values: [movie, episode, track, podcast]}
+      - name: duration_seconds
+        data_tests:
+          - value_between:
+              name: streaming_content_duration_valid
+              description: Content lasts between 1 second and 6 hours.
+              arguments: {min_value: 1, max_value: 21600}
+
+  - name: slv_streaming__playback_events
+    data_tests:
+      - expression_is_true:
+          name: streaming_event_position_within_duration
+          description: The playhead can't be before the start or past the end of the content.
+          arguments: {expression: "position_seconds between 0 and content_duration_seconds"}
+      - expression_is_true:
+          name: streaming_event_watch_seconds_valid
+          description: Time watched since the previous event is non-negative and bounded by the content length.
+          arguments: {expression: "watch_seconds between 0 and content_duration_seconds"}
+      - expression_is_true:
+          name: streaming_completion_requires_90_percent
+          description: A play only counts as complete (royalties, recommendations) after 90% of the content.
+          arguments: {expression: "event_type <> 'complete' or position_seconds >= 0.9 * content_duration_seconds"}
+      - expression_is_true:
+          name: streaming_free_plan_not_on_tv
+          description: "Entitlement: TV apps are for paid plans only."
+          arguments: {expression: "user_plan <> 'free' or device <> 'tv'"}
+      - expression_is_true:
+          name: streaming_event_after_signup
+          arguments: {expression: "event_date >= user_signup_date"}
+    columns:
+      - name: event_id
+        data_tests: [{unique: {name: streaming_event_id_unique}}]
+      - name: user_id
+        data_tests:
+          - relationships:
+              name: streaming_event_user_exists
+              arguments: {to: ref('slv_streaming__users'), field: user_id}
+      - name: content_id
+        data_tests:
+          - relationships:
+              name: streaming_event_content_exists
+              arguments: {to: ref('slv_streaming__content'), field: content_id}
+      - name: event_type
+        data_tests:
+          - accepted_values:
+              name: streaming_event_type_valid
+              arguments: {values: [start, pause, resume, stop, complete]}
+      - name: device
+        data_tests:
+          - accepted_values:
+              name: streaming_event_device_valid
+              arguments: {values: [tv, mobile, web, tablet]}
+      - name: event_ts
+        data_tests: [{not_in_future: {name: streaming_event_not_in_future}}]

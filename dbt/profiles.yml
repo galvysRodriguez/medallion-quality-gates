@@ -1,0 +1,14 @@
+# Defaults let you run dbt from the host (port 5433).
+# Inside Docker the WAREHOUSE_* variables point to the `warehouse` service.
+warehouse:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('WAREHOUSE_HOST', 'localhost') }}"
+      port: "{{ env_var('WAREHOUSE_PORT', '5433') | int }}"
+      user: "{{ env_var('WAREHOUSE_USER', 'dbt') }}"
+      password: "{{ env_var('WAREHOUSE_PASSWORD', 'dbt') }}"
+      dbname: "{{ env_var('WAREHOUSE_DB', 'warehouse') }}"
+      schema: analytics
+      threads: 4
