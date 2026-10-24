@@ -1,6 +1,14 @@
-# Medallion data quality pipeline — Airflow + dbt + Docker
+# Medallion Quality Gates
 
-A local, domain-agnostic pipeline that moves landing files through **Bronze → Silver → Gold**,
+[![CI](https://github.com/galvysRodriguez/medallion-quality-gates/actions/workflows/ci.yml/badge.svg)](https://github.com/galvysRodriguez/medallion-quality-gates/actions/workflows/ci.yml)
+![Airflow](https://img.shields.io/badge/Airflow-3.3-017CEE?logo=apacheairflow&logoColor=white)
+![dbt](https://img.shields.io/badge/dbt--core-1.12-FF694B?logo=dbt&logoColor=white)
+![Postgres](https://img.shields.io/badge/Postgres-16-4169E1?logo=postgresql&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker_Compose-2496ED?logo=docker&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+A local, domain-agnostic data pipeline that moves landing files through **Bronze → Silver → Gold**,
 orchestrated by Airflow, and **stops automatically when data breaks a dbt quality rule**.
 Consumers only ever read gold data that passed every rule (Write-Audit-Publish), and gold keeps
 the full history of published batches.
@@ -8,6 +16,24 @@ the full history of published batches.
 It ships with three example domains — **fintech**, **ecommerce**, **streaming** — each with a
 typed data contract, dbt models, business rules, and a sample-data generator that produces clean
 batches or batches corrupted in a specific way.
+
+## Highlights
+
+- **Quality gates, not just tests.** Every medallion layer is one `dbt build`; a failing rule
+  fails the Airflow task and nothing downstream runs. Bad data never reaches consumers.
+- **Write-Audit-Publish with history.** Gold is built and audited in a staging schema, then
+  published atomically per batch; re-runs are idempotent and any batch can be rolled back.
+- **Domains as configuration.** A typed YAML data contract generates the dbt sources, bronze
+  models and bronze rules, and a new Airflow DAG appears automatically — no engine code changes.
+- **Provably correct gates.** Each domain has corruption scenarios (negative amounts, invalid
+  emails, overdrafts, …) and the integration suite asserts each one is stopped **at the expected
+  layer by the expected rule**.
+- **Observability.** Per-run reports, a `dq_audit` history with rule health metrics, stored
+  failing rows, webhook alerts and a generated rule catalog with lineage diagrams.
+- **Production habits.** CI (unit, integration against Postgres, DAG integrity, image build),
+  least-privilege read-only role for analysts, data-aware scheduling with Airflow Assets.
+
+## Stack
 
 | Component | Version | Where |
 |---|---|---|
@@ -184,3 +210,7 @@ docker/, docker-compose.yaml, Makefile
   are not owned by your user.
 - The warehouse init script (roles `gold_reader`, `analyst`) only runs on a fresh volume:
   `make clean` first if the warehouse was created before.
+
+## License
+
+[MIT](LICENSE) — built by [Galvys Rodriguez](https://github.com/galvysRodriguez).
