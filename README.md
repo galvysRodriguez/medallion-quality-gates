@@ -18,6 +18,10 @@ batches or batches corrupted in a specific way.
 
 ## How it works
 
+Diagrams of every part — system, gates, DAG, publishing, batch lifecycle, access — are in
+**[docs/architecture.md](docs/architecture.md)**, and each domain's lineage in its
+[rule catalog](docs/rules/README.md) page.
+
 ```
 data/landing/<domain>/<batch>/*.csv|json|jsonl + _SUCCESS
         │
@@ -160,7 +164,8 @@ dbt/macros/               schema convention, batch filter, publish/rollback
 dbt/models/<domain>/      generated _sources + bronze; hand-written silver and gold
 tests/                    pytest suite
 .github/workflows/ci.yml  CI
-docs/rules/               generated rule catalog (one page per business rule)
+docs/architecture.md      architecture diagrams (Mermaid)
+docs/rules/               generated rule catalog (one page per business rule) + lineage diagrams
 docker/, docker-compose.yaml, Makefile
 ```
 

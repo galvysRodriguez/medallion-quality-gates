@@ -6,6 +6,58 @@ Online store — customers, product catalog, orders and order lines.
 
 45 rules: 19 structural (bronze), 26 business (silver and gold). Back to the [catalog](../README.md).
 
+## Lineage
+
+Generated from the `ref()`/`source()` calls in the models; each box shows how many rules guard it. Raw tables hold every batch as text, bronze models are views of the current batch, silver is typed and cleaned, and gold is built in `_gold_staging` and published into `_gold`. Dotted arrows are cross-layer reconciliation rules.
+
+```mermaid
+flowchart LR
+  subgraph raw["ecommerce_raw"]
+    raw__customers[("customers")]
+    raw__order_items[("order_items")]
+    raw__orders[("orders")]
+    raw__products[("products")]
+  end
+  subgraph bronze["ecommerce_bronze"]
+    brz_ecommerce__customers["brz_ecommerce__customers<br/>3 rules"]
+    brz_ecommerce__order_items["brz_ecommerce__order_items<br/>7 rules"]
+    brz_ecommerce__orders["brz_ecommerce__orders<br/>5 rules"]
+    brz_ecommerce__products["brz_ecommerce__products<br/>4 rules"]
+  end
+  subgraph silver["ecommerce_silver"]
+    slv_ecommerce__customers["slv_ecommerce__customers<br/>4 rules"]
+    slv_ecommerce__order_items["slv_ecommerce__order_items<br/>7 rules"]
+    slv_ecommerce__orders["slv_ecommerce__orders<br/>7 rules"]
+    slv_ecommerce__products["slv_ecommerce__products<br/>3 rules"]
+  end
+  subgraph gold["ecommerce_gold"]
+    gld_ecommerce__daily_kpis["gld_ecommerce__daily_kpis<br/>2 rules"]
+    gld_ecommerce__daily_sales["gld_ecommerce__daily_sales<br/>3 rules"]
+  end
+  raw__customers --> brz_ecommerce__customers
+  raw__order_items --> brz_ecommerce__order_items
+  raw__orders --> brz_ecommerce__orders
+  raw__products --> brz_ecommerce__products
+  brz_ecommerce__customers --> slv_ecommerce__customers
+  brz_ecommerce__order_items --> slv_ecommerce__order_items
+  slv_ecommerce__products --> slv_ecommerce__order_items
+  brz_ecommerce__orders --> slv_ecommerce__orders
+  slv_ecommerce__order_items --> slv_ecommerce__orders
+  brz_ecommerce__products --> slv_ecommerce__products
+  slv_ecommerce__orders --> gld_ecommerce__daily_kpis
+  slv_ecommerce__orders --> gld_ecommerce__daily_sales
+  slv_ecommerce__order_items --> gld_ecommerce__daily_sales
+  gld_ecommerce__daily_sales -. reconciles .-> slv_ecommerce__orders
+  classDef raw fill:#eceff1,stroke:#78909c,color:#1f2933
+  classDef bronze fill:#f3e0c7,stroke:#a1662f,color:#1f2933
+  classDef silver fill:#e8eaf0,stroke:#8790a3,color:#1f2933
+  classDef gold fill:#fff3c4,stroke:#c9a227,color:#1f2933
+  class raw__customers,raw__order_items,raw__orders,raw__products raw
+  class brz_ecommerce__customers,brz_ecommerce__order_items,brz_ecommerce__orders,brz_ecommerce__products bronze
+  class slv_ecommerce__customers,slv_ecommerce__order_items,slv_ecommerce__orders,slv_ecommerce__products silver
+  class gld_ecommerce__daily_kpis,gld_ecommerce__daily_sales gold
+```
+
 ## Silver
 
 | Rule | Model | Checks | Severity | Scenario |

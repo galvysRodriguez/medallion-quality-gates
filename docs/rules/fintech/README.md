@@ -6,6 +6,47 @@ Core banking — customer accounts and their monetary transactions.
 
 34 rules: 11 structural (bronze), 23 business (silver and gold). Back to the [catalog](../README.md).
 
+## Lineage
+
+Generated from the `ref()`/`source()` calls in the models; each box shows how many rules guard it. Raw tables hold every batch as text, bronze models are views of the current batch, silver is typed and cleaned, and gold is built in `_gold_staging` and published into `_gold`. Dotted arrows are cross-layer reconciliation rules.
+
+```mermaid
+flowchart LR
+  subgraph raw["fintech_raw"]
+    raw__accounts[("accounts")]
+    raw__transactions[("transactions")]
+  end
+  subgraph bronze["fintech_bronze"]
+    brz_fintech__accounts["brz_fintech__accounts<br/>4 rules"]
+    brz_fintech__transactions["brz_fintech__transactions<br/>7 rules"]
+  end
+  subgraph silver["fintech_silver"]
+    slv_fintech__accounts["slv_fintech__accounts<br/>5 rules"]
+    slv_fintech__transactions["slv_fintech__transactions<br/>13 rules"]
+  end
+  subgraph gold["fintech_gold"]
+    gld_fintech__account_daily_positions["gld_fintech__account_daily_positions<br/>3 rules"]
+    gld_fintech__daily_summary["gld_fintech__daily_summary<br/>2 rules"]
+  end
+  raw__accounts --> brz_fintech__accounts
+  raw__transactions --> brz_fintech__transactions
+  brz_fintech__accounts --> slv_fintech__accounts
+  brz_fintech__transactions --> slv_fintech__transactions
+  slv_fintech__accounts --> slv_fintech__transactions
+  slv_fintech__transactions --> gld_fintech__account_daily_positions
+  slv_fintech__accounts --> gld_fintech__account_daily_positions
+  gld_fintech__account_daily_positions --> gld_fintech__daily_summary
+  gld_fintech__account_daily_positions -. reconciles .-> slv_fintech__transactions
+  classDef raw fill:#eceff1,stroke:#78909c,color:#1f2933
+  classDef bronze fill:#f3e0c7,stroke:#a1662f,color:#1f2933
+  classDef silver fill:#e8eaf0,stroke:#8790a3,color:#1f2933
+  classDef gold fill:#fff3c4,stroke:#c9a227,color:#1f2933
+  class raw__accounts,raw__transactions raw
+  class brz_fintech__accounts,brz_fintech__transactions bronze
+  class slv_fintech__accounts,slv_fintech__transactions silver
+  class gld_fintech__account_daily_positions,gld_fintech__daily_summary gold
+```
+
 ## Silver
 
 | Rule | Model | Checks | Severity | Scenario |

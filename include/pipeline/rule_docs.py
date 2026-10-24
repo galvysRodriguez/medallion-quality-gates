@@ -197,6 +197,58 @@ def _rule_page(rule: Rule) -> str:
     return "\n".join(lines)
 
 
+_REF = re.compile(r"ref\(\s*['\"]([^'\"]+)['\"]\s*\)")
+_SOURCE = re.compile(r"source\(\s*['\"]([^'\"]+)['\"]\s*,\s*['\"]([^'\"]+)['\"]\s*\)")
+
+
+def lineage_mermaid(domain: str, rules: list[Rule], dbt_dir: Path | None = None) -> str:
+    """Mermaid flowchart of the domain's models, read from the refs/sources in their SQL."""
+    dbt_dir = dbt_dir or DBT_PROJECT_DIR
+    per_model: dict[str, int] = {}
+    for r in rules:
+        per_model[r.model] = per_model.get(r.model, 0) + 1
+
+    lines = ["flowchart LR"]
+    edges, raw_tables = [], []
+    layers = {}
+    for layer in LAYERS:
+        layers[layer] = sorted((dbt_dir / "models" / domain / layer).glob("*.sql"))
+        for sql in layers[layer]:
+            text = sql.read_text()
+            for ref in _REF.findall(text):
+                edges.append((ref, sql.stem))
+            for _, table in _SOURCE.findall(text):
+                raw_tables.append(table)
+                edges.append((f"raw__{table}", sql.stem))
+
+    lines.append(f'  subgraph raw["{domain}_raw"]')
+    lines += [f'    raw__{t}[("{t}")]' for t in sorted(set(raw_tables))]
+    lines.append("  end")
+    titles = {"bronze": f"{domain}_bronze", "silver": f"{domain}_silver", "gold": f"{domain}_gold"}
+    for layer in LAYERS:
+        lines.append(f'  subgraph {layer}["{titles[layer]}"]')
+        for sql in layers[layer]:
+            n = per_model.get(sql.stem, 0)
+            lines.append(f'    {sql.stem}["{sql.stem}<br/>{n} rule{"s" if n != 1 else ""}"]')
+        lines.append("  end")
+    lines += [f"  {a} --> {b}" for a, b in edges]
+    # Cross-layer checks: gold must add up to the silver it was built from.
+    for r in rules:
+        if r.check == "reconciles_with":
+            lines.append(f"  {r.model} -. reconciles .-> {_ref_name(r.arguments['compare_model'])}")
+    lines += [
+        "  classDef raw fill:#eceff1,stroke:#78909c,color:#1f2933",
+        "  classDef bronze fill:#f3e0c7,stroke:#a1662f,color:#1f2933",
+        "  classDef silver fill:#e8eaf0,stroke:#8790a3,color:#1f2933",
+        "  classDef gold fill:#fff3c4,stroke:#c9a227,color:#1f2933",
+        "  class " + ",".join(f"raw__{t}" for t in sorted(set(raw_tables))) + " raw",
+    ]
+    for layer in LAYERS:
+        if layers[layer]:
+            lines.append(f"  class {','.join(p.stem for p in layers[layer])} {layer}")
+    return "\n".join(lines)
+
+
 def _cell(text: str) -> str:
     return text.replace("|", "\\|")
 
@@ -211,6 +263,17 @@ def _domain_page(domain: str, description: str, rules: list[Rule]) -> str:
         "",
         f"{len(rules)} rules: {sum(r.layer == 'bronze' for r in rules)} structural (bronze), "
         f"{len(business)} business (silver and gold). Back to the [catalog](../README.md).",
+        "",
+        "## Lineage",
+        "",
+        "Generated from the `ref()`/`source()` calls in the models; each box shows how many rules guard it. "
+        "Raw tables hold every batch as text, bronze models are views of the current batch, silver is typed "
+        "and cleaned, and gold is built in `_gold_staging` and published into `_gold`. Dotted arrows are "
+        "cross-layer reconciliation rules.",
+        "",
+        "```mermaid",
+        lineage_mermaid(domain, rules),
+        "```",
         "",
     ]
     for layer in BUSINESS_LAYERS:

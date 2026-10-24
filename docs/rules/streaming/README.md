@@ -6,6 +6,52 @@ Video/audio streaming — subscribers, content catalog and playback events.
 
 37 rules: 16 structural (bronze), 21 business (silver and gold). Back to the [catalog](../README.md).
 
+## Lineage
+
+Generated from the `ref()`/`source()` calls in the models; each box shows how many rules guard it. Raw tables hold every batch as text, bronze models are views of the current batch, silver is typed and cleaned, and gold is built in `_gold_staging` and published into `_gold`. Dotted arrows are cross-layer reconciliation rules.
+
+```mermaid
+flowchart LR
+  subgraph raw["streaming_raw"]
+    raw__content[("content")]
+    raw__playback_events[("playback_events")]
+    raw__users[("users")]
+  end
+  subgraph bronze["streaming_bronze"]
+    brz_streaming__content["brz_streaming__content<br/>5 rules"]
+    brz_streaming__playback_events["brz_streaming__playback_events<br/>8 rules"]
+    brz_streaming__users["brz_streaming__users<br/>3 rules"]
+  end
+  subgraph silver["streaming_silver"]
+    slv_streaming__content["slv_streaming__content<br/>3 rules"]
+    slv_streaming__playback_events["slv_streaming__playback_events<br/>11 rules"]
+    slv_streaming__users["slv_streaming__users<br/>2 rules"]
+  end
+  subgraph gold["streaming_gold"]
+    gld_streaming__daily_content_engagement["gld_streaming__daily_content_engagement<br/>3 rules"]
+    gld_streaming__daily_user_activity["gld_streaming__daily_user_activity<br/>2 rules"]
+  end
+  raw__content --> brz_streaming__content
+  raw__playback_events --> brz_streaming__playback_events
+  raw__users --> brz_streaming__users
+  brz_streaming__content --> slv_streaming__content
+  brz_streaming__playback_events --> slv_streaming__playback_events
+  slv_streaming__users --> slv_streaming__playback_events
+  slv_streaming__content --> slv_streaming__playback_events
+  brz_streaming__users --> slv_streaming__users
+  slv_streaming__playback_events --> gld_streaming__daily_content_engagement
+  slv_streaming__playback_events --> gld_streaming__daily_user_activity
+  gld_streaming__daily_content_engagement -. reconciles .-> slv_streaming__playback_events
+  classDef raw fill:#eceff1,stroke:#78909c,color:#1f2933
+  classDef bronze fill:#f3e0c7,stroke:#a1662f,color:#1f2933
+  classDef silver fill:#e8eaf0,stroke:#8790a3,color:#1f2933
+  classDef gold fill:#fff3c4,stroke:#c9a227,color:#1f2933
+  class raw__content,raw__playback_events,raw__users raw
+  class brz_streaming__content,brz_streaming__playback_events,brz_streaming__users bronze
+  class slv_streaming__content,slv_streaming__playback_events,slv_streaming__users silver
+  class gld_streaming__daily_content_engagement,gld_streaming__daily_user_activity gold
+```
+
 ## Silver
 
 | Rule | Model | Checks | Severity | Scenario |
