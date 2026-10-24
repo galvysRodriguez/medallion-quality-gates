@@ -4,7 +4,7 @@ models:
   - name: slv_ecommerce__customers
     columns:
       - name: customer_id
-        data_tests: [{unique: {name: ecommerce_customer_id_unique}}]
+        data_tests: [{unique: {name: ecommerce_customer_id_unique, description: "A customer appears once per snapshot; duplicates would split order history and lifetime value."}}]
       - name: email
         data_tests:
           - matches_pattern:
@@ -15,27 +15,30 @@ models:
         data_tests:
           - accepted_values:
               name: ecommerce_customer_country_valid
+              description: "Customers can only register in the markets the store operates in."
               arguments: {values: [US, MX, CO, ES, BR, DE, FR]}
       - name: signup_date
-        data_tests: [{not_in_future: {name: ecommerce_customer_signup_not_in_future}}]
+        data_tests: [{not_in_future: {name: ecommerce_customer_signup_not_in_future, description: "A signup date in the future signals a timezone or parsing bug upstream."}}]
 
   - name: slv_ecommerce__products
     columns:
       - name: sku
-        data_tests: [{unique: {name: ecommerce_product_sku_unique}}]
+        data_tests: [{unique: {name: ecommerce_product_sku_unique, description: "The SKU identifies a product; two catalog rows for one SKU make its price and category ambiguous."}}]
       - name: unit_price
         data_tests:
-          - value_between: {name: ecommerce_product_price_positive, arguments: {min_value: 0.01}}
+          - value_between: {name: ecommerce_product_price_positive, description: "Catalog prices are positive; giveaways are modelled as discounts, not as zero prices.", arguments: {min_value: 0.01}}
       - name: category
         data_tests:
           - accepted_values:
               name: ecommerce_product_category_valid
+              description: "Every product belongs to a known category, so category reports add up to the total."
               arguments: {values: [electronics, books, home, fashion, toys]}
 
   - name: slv_ecommerce__order_items
     data_tests:
       - unique_combination:
           name: ecommerce_item_line_unique
+          description: "An order line is identified by order and line number; duplicates would double-count units and revenue."
           arguments: {columns: [order_id, line_number]}
       - expression_is_true:
           name: ecommerce_item_discount_valid
@@ -50,11 +53,13 @@ models:
         data_tests:
           - relationships:
               name: ecommerce_item_order_exists
+              description: "Order lines must belong to an order of the same batch (no orphan lines)."
               arguments: {to: ref('slv_ecommerce__orders'), field: order_id}
       - name: sku
         data_tests:
           - relationships:
               name: ecommerce_item_product_exists
+              description: "Every line sells a product of the catalog; unknown SKUs can't be priced or categorised."
               arguments: {to: ref('slv_ecommerce__products'), field: sku}
       - name: quantity
         data_tests:
@@ -64,7 +69,7 @@ models:
               arguments: {min_value: 1, max_value: 1000}
       - name: unit_price
         data_tests:
-          - value_between: {name: ecommerce_item_price_positive, arguments: {min_value: 0.01}}
+          - value_between: {name: ecommerce_item_price_positive, description: "The price charged per unit must be positive.", arguments: {min_value: 0.01}}
 
   - name: slv_ecommerce__orders
     data_tests:
@@ -74,24 +79,28 @@ models:
           arguments: {expression: "abs(total_amount - items_net_total) <= 0.01"}
       - expression_is_true:
           name: ecommerce_order_has_items
+          description: "An order without lines has nothing to fulfil or charge, which usually means a partial export."
           arguments: {expression: "item_count >= 1"}
     columns:
       - name: order_id
-        data_tests: [{unique: {name: ecommerce_order_id_unique}}]
+        data_tests: [{unique: {name: ecommerce_order_id_unique, description: "Same order id with different content means a conflicting replay (exact replays are deduplicated)."}}]
       - name: customer_id
         data_tests:
           - relationships:
               name: ecommerce_order_customer_exists
+              description: "Orders must be placed by a known customer."
               arguments: {to: ref('slv_ecommerce__customers'), field: customer_id}
       - name: status
         data_tests:
           - accepted_values:
               name: ecommerce_order_status_valid
+              description: "The status must be a step of the order lifecycle: placed, paid, shipped, delivered, cancelled or refunded."
               arguments: {values: [placed, paid, shipped, delivered, cancelled, refunded]}
       - name: shipping_country
         data_tests:
           - accepted_values:
               name: ecommerce_order_shipping_country_valid
+              description: "Orders only ship to countries the store delivers to."
               arguments: {values: [US, MX, CO, ES, BR, DE, FR]}
       - name: order_ts
-        data_tests: [{not_in_future: {name: ecommerce_order_not_in_future}}]
+        data_tests: [{not_in_future: {name: ecommerce_order_not_in_future, description: "Orders can't be placed in the future."}}]

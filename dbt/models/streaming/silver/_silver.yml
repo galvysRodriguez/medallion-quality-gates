@@ -4,19 +4,20 @@ models:
   - name: slv_streaming__users
     columns:
       - name: user_id
-        data_tests: [{unique: {name: streaming_user_id_unique}}]
+        data_tests: [{unique: {name: streaming_user_id_unique, description: "A subscriber appears once per snapshot."}}]
       - name: plan
         data_tests:
-          - accepted_values: {name: streaming_user_plan_valid, arguments: {values: [free, basic, premium]}}
+          - accepted_values: {name: streaming_user_plan_valid, description: "Plans are free, basic or premium; entitlements depend on the plan.", arguments: {values: [free, basic, premium]}}
 
   - name: slv_streaming__content
     columns:
       - name: content_id
-        data_tests: [{unique: {name: streaming_content_id_unique}}]
+        data_tests: [{unique: {name: streaming_content_id_unique, description: "A content item appears once in the catalog."}}]
       - name: content_type
         data_tests:
           - accepted_values:
               name: streaming_content_type_valid
+              description: "Content is a movie, an episode, a music track or a podcast."
               arguments: {values: [movie, episode, track, podcast]}
       - name: duration_seconds
         data_tests:
@@ -45,29 +46,34 @@ models:
           arguments: {expression: "user_plan <> 'free' or device <> 'tv'"}
       - expression_is_true:
           name: streaming_event_after_signup
+          description: "A user can't play content before signing up; this points to wrong user ids or clock issues."
           arguments: {expression: "event_date >= user_signup_date"}
     columns:
       - name: event_id
-        data_tests: [{unique: {name: streaming_event_id_unique}}]
+        data_tests: [{unique: {name: streaming_event_id_unique, description: "Same event id with different content means a conflicting replay (exact replays are deduplicated)."}}]
       - name: user_id
         data_tests:
           - relationships:
               name: streaming_event_user_exists
+              description: "Every playback event belongs to a known subscriber."
               arguments: {to: ref('slv_streaming__users'), field: user_id}
       - name: content_id
         data_tests:
           - relationships:
               name: streaming_event_content_exists
+              description: "Every playback event refers to catalog content (royalties are paid per content item)."
               arguments: {to: ref('slv_streaming__content'), field: content_id}
       - name: event_type
         data_tests:
           - accepted_values:
               name: streaming_event_type_valid
+              description: "Player events are start, pause, resume, stop or complete."
               arguments: {values: [start, pause, resume, stop, complete]}
       - name: device
         data_tests:
           - accepted_values:
               name: streaming_event_device_valid
+              description: "Playback only happens on supported devices: tv, mobile, web or tablet."
               arguments: {values: [tv, mobile, web, tablet]}
       - name: event_ts
-        data_tests: [{not_in_future: {name: streaming_event_not_in_future}}]
+        data_tests: [{not_in_future: {name: streaming_event_not_in_future, description: "Events can't happen in the future."}}]

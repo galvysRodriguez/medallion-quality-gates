@@ -6,6 +6,7 @@ models:
     data_tests:
       - unique_combination:
           name: fintech_position_grain_unique
+          description: "One position per account and day; duplicates would double-count balances."
           arguments: {columns: [account_id, position_date]}
       - expression_is_true:
           name: fintech_no_overdraft_beyond_credit_limit
@@ -23,7 +24,8 @@ models:
   - name: gld_fintech__daily_summary
     description: Daily money movement per currency — the consumer-facing KPI table.
     data_tests:
-      - row_count_between: {name: fintech_daily_summary_not_empty, arguments: {min_value: 1}}
+      - row_count_between: {name: fintech_daily_summary_not_empty, description: "A published day must contain at least one posted movement.", arguments: {min_value: 1}}
       - expression_is_true:
           name: fintech_summary_flows_consistent
+          description: "Inflows and outflows are non-negative and the net flow equals inflows minus outflows."
           arguments: {expression: "inflows >= 0 and outflows >= 0 and net_flow = inflows - outflows"}

@@ -32,6 +32,8 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - name: Generated dbt files match the data contracts
         run: python -m pipeline scaffold --check
+      - name: Rule catalog (docs/rules) matches the dbt YAML
+        run: python -m pipeline docs --check
       - name: Unit tests
         run: pytest -m "not integration"
       - name: dbt parse

@@ -5,9 +5,11 @@ models:
     data_tests:
       - unique_combination:
           name: ecommerce_sales_grain_unique
+          description: "One row per day and category; duplicates would double-count revenue in reports."
           arguments: {columns: [order_date, category]}
       - expression_is_true:
           name: ecommerce_sales_net_not_above_gross
+          description: "Net revenue (after discounts) can never be negative or exceed gross revenue."
           arguments: {expression: "net_revenue >= 0 and net_revenue <= gross_revenue"}
       - reconciles_with:
           name: ecommerce_gold_revenue_reconciles
@@ -20,7 +22,7 @@ models:
 
   - name: gld_ecommerce__daily_kpis
     data_tests:
-      - row_count_between: {name: ecommerce_daily_kpis_not_empty, arguments: {min_value: 1}}
+      - row_count_between: {name: ecommerce_daily_kpis_not_empty, description: "A published day must contain at least one valid order; an empty KPI table means everything was filtered out upstream.", arguments: {min_value: 1}}
     columns:
       - name: average_order_value
         data_tests:

@@ -13,11 +13,12 @@ models:
     columns:
       - name: account_id
         data_tests:
-          - unique: {name: fintech_account_id_unique}
+          - unique: {name: fintech_account_id_unique, description: "An account appears once per snapshot."}
       - name: status
         data_tests:
           - accepted_values:
               name: fintech_account_status_valid
+              description: "Accounts are active, frozen or closed: the states the core banking system knows."
               arguments: {values: [active, frozen, closed]}
       - name: credit_limit
         data_tests:
@@ -27,7 +28,7 @@ models:
               arguments: {min_value: 0, max_value: 100000}
       - name: opened_at
         data_tests:
-          - not_in_future: {name: fintech_account_opened_not_in_future}
+          - not_in_future: {name: fintech_account_opened_not_in_future, description: "An account can't be opened in the future."}
 
   - name: slv_fintech__transactions
     description: Typed, deduplicated transactions of the current batch, enriched with their account.
@@ -58,6 +59,7 @@ models:
         data_tests:
           - relationships:
               name: fintech_txn_account_exists
+              description: "Every transaction belongs to a known account; orphan movements can't be reconciled."
               arguments: {to: ref('slv_fintech__accounts'), field: account_id}
       - name: amount
         data_tests:
@@ -78,17 +80,20 @@ models:
         data_tests:
           - accepted_values:
               name: fintech_txn_currency_supported
+              description: "Only the ISO 4217 currencies the bank operates in are accepted."
               arguments: {values: [USD, EUR, MXN, COP, BRL]}
       - name: txn_type
         data_tests:
           - accepted_values:
               name: fintech_txn_type_valid
+              description: "The transaction type gives its direction (credit or debit); an unknown type can't be signed."
               arguments: {values: [deposit, withdrawal, transfer_in, transfer_out, card_payment, fee]}
       - name: status
         data_tests:
           - accepted_values:
               name: fintech_txn_status_valid
+              description: "Transactions are posted, pending or reversed; only posted ones move balances."
               arguments: {values: [posted, pending, reversed]}
       - name: txn_ts
         data_tests:
-          - not_in_future: {name: fintech_txn_not_in_future}
+          - not_in_future: {name: fintech_txn_not_in_future, description: "Movements can't be booked in the future (5 minutes of tolerance for clock skew)."}

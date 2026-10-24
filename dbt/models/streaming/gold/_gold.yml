@@ -5,6 +5,7 @@ models:
     data_tests:
       - unique_combination:
           name: streaming_engagement_grain_unique
+          description: "One row per day and content item."
           arguments: {columns: [event_date, content_id]}
       - reconciles_with:
           name: streaming_gold_watch_time_reconciles
@@ -17,12 +18,13 @@ models:
     columns:
       - name: completion_rate
         data_tests:
-          - value_between: {name: streaming_completion_rate_valid, arguments: {min_value: 0, max_value: 1}}
+          - value_between: {name: streaming_completion_rate_valid, description: "The completion rate is completions over plays, so it must be between 0 and 1.", arguments: {min_value: 0, max_value: 1}}
 
   - name: gld_streaming__daily_user_activity
     data_tests:
       - unique_combination:
           name: streaming_user_activity_grain_unique
+          description: "One row per user and day."
           arguments: {columns: [event_date, user_id]}
     columns:
       - name: watch_seconds

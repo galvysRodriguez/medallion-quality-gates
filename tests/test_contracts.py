@@ -104,3 +104,17 @@ def test_unknown_column_type_is_rejected(tmp_path):
     path.write_text("domain: x\nentities:\n  a: {file: a.csv, format: csv, columns: {id: uuid}}\n")
     with pytest.raises(ConfigError, match="unsupported type"):
         load_domain_file(path)
+
+
+def test_rule_docs_are_up_to_date():
+    from pipeline import rule_docs
+
+    stale = rule_docs.stale_files()
+    assert not stale, f"docs/rules out of date: {stale[:5]} — run `python -m pipeline docs`"
+
+
+def test_every_business_rule_explains_why():
+    from pipeline import rule_docs
+
+    missing = [r.name for r in rule_docs.collect_rules() if r.layer in ("silver", "gold") and not r.description]
+    assert not missing, f"add a description to: {missing}"

@@ -53,6 +53,10 @@ data/landing/<domain>/<batch>/*.csv|json|jsonl + _SUCCESS
 | ecommerce | quantity integer, prices numeric | valid email, order lifecycle status, 1–1,000 units per line, discount ≤ line amount, order total = sum of lines, no discontinued products, every order has lines | daily average order value ≤ 5,000, revenue reconciles with silver |
 | streaming | watch_seconds integer, user present | playhead within content duration, completion needs 90% played, free plan not on TV, no plays before signup | ≤ 24 h watched per user per day, watch hours reconcile |
 
+The full catalog, with one page per business rule (what it checks, why, what happens when it
+fails, the scenario that trips it and how to investigate), is in **[docs/rules](docs/rules/README.md)**.
+It is generated from the dbt YAML: after changing a rule run `make docs`.
+
 `make scenarios` lists every corruption scenario and the exact rule expected to stop it:
 
 ```
@@ -112,7 +116,8 @@ batches with warnings. Without a webhook alerts are only logged.
 
 **New rule** — add it to the domain's `silver/_silver.yml` or `gold/_gold.yml`, using dbt's
 built-in tests or the rule library in `dbt/macros/rules/` (`expression_is_true` accepts any SQL
-predicate). Give it a `name` (its id in reports and in `dq_audit`) and a `description`.
+predicate). Give it a `name` (its id in reports and in `dq_audit`) and a `description` (the
+business reason — required), then run `make docs` to regenerate its page in `docs/rules/`.
 
 **New domain** — nothing in the engine or the DAG code changes:
 
@@ -155,6 +160,7 @@ dbt/macros/               schema convention, batch filter, publish/rollback
 dbt/models/<domain>/      generated _sources + bronze; hand-written silver and gold
 tests/                    pytest suite
 .github/workflows/ci.yml  CI
+docs/rules/               generated rule catalog (one page per business rule)
 docker/, docker-compose.yaml, Makefile
 ```
 

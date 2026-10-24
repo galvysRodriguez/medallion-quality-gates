@@ -1,4 +1,4 @@
-"""CLI: python -m pipeline {domains,scaffold,scenarios,generate,run,rollback} ...
+"""CLI: python -m pipeline {domains,scaffold,docs,scenarios,generate,run,rollback} ...
 
 Run from the project root with include/ on PYTHONPATH (the Makefile does this).
 """
@@ -10,7 +10,7 @@ import json
 import logging
 import sys
 
-from pipeline import orchestration, scaffold
+from pipeline import orchestration, rule_docs, scaffold
 from pipeline.config import load_domains
 from pipeline.dbt_runner import QualityGateError
 from pipeline.generators import GENERATORS, generate
@@ -25,6 +25,9 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("scaffold", help="generate sources + bronze models/rules from the data contracts")
     p.add_argument("domain", nargs="?", help="default: every domain")
     p.add_argument("--check", action="store_true", help="only report out-of-date files (exit 1 if any)")
+
+    p = sub.add_parser("docs", help="generate the rule catalog in docs/rules/ from the dbt YAML")
+    p.add_argument("--check", action="store_true", help="only report out-of-date pages (exit 1 if any)")
 
     p = sub.add_parser("scenarios", help="list corruption scenarios and the rule that must catch them")
     p.add_argument("domain", nargs="?")
@@ -64,6 +67,15 @@ def main(argv: list[str] | None = None) -> int:
         if args.check and any(stale.values()):
             print("run `python -m pipeline scaffold` to regenerate")
             return 1
+    elif args.command == "docs":
+        changed = rule_docs.stale_files() if args.check else rule_docs.write()
+        for path in changed:
+            print(f"{'out of date' if args.check else 'wrote'}: docs/rules/{path}")
+        if args.check and changed:
+            print("run `python -m pipeline docs` to regenerate")
+            return 1
+        if not args.check:
+            print(f"{len(rule_docs.render())} pages in docs/rules/ ({len(changed)} changed)")
     elif args.command == "scenarios":
         for name, gen in GENERATORS.items():
             if args.domain and name != args.domain:

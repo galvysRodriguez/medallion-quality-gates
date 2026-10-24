@@ -1,5 +1,5 @@
 .PHONY: build up down restart logs ps shell clean venv \
-        domains scaffold scenarios generate pipeline rollback demo \
+        domains scaffold docs scenarios generate pipeline rollback demo \
         test test-integration test-dags dbt-debug dbt-docs
 
 # Sample-data / pipeline parameters: make generate DOMAIN=ecommerce SCENARIO=invalid_emails
@@ -42,6 +42,9 @@ domains:    ## List data contracts
 
 scaffold:   ## Regenerate sources + bronze models/rules from include/domains/*.yml (DOMAIN= for one)
 	$(LOCAL) -m pipeline scaffold $(if $(filter command line,$(origin DOMAIN)),$(DOMAIN))
+
+docs:       ## Regenerate the rule catalog in docs/rules/ from the dbt YAML
+	$(LOCAL) -m pipeline docs
 
 scenarios:  ## List corruption scenarios and the rule expected to stop each one
 	$(PIPELINE) scenarios
