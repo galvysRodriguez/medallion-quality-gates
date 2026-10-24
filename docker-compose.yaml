@@ -26,6 +26,9 @@ x-airflow-common:
     AIRFLOW__API_AUTH__JWT_ISSUER: airflow
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
+    # Python packages live in /home/airflow/.local. The image entrypoint only fixes HOME for an
+    # AIRFLOW_UID without a passwd entry (Docker); podman adds one, so set it explicitly.
+    HOME: /home/airflow
     # Warehouse connection used by dbt (profiles.yml) and the DAGs
     WAREHOUSE_HOST: warehouse
     WAREHOUSE_PORT: 5432

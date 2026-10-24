@@ -163,5 +163,13 @@ docker/, docker-compose.yaml, Makefile
 - Fedora runs SELinux in Enforcing mode: the compose bind mounts use `:z`.
 - Your user must belong to the `docker` group (or use `sudo docker ...`).
 - `.env` contains the Fernet key and JWT secret; do not commit it. Start from `.env.example`.
+- Runs of one domain are serialized (`max_active_runs=1`), because they share the bronze, silver
+  and gold staging schemas. A scheduled run waiting for its batch therefore delays manual runs of
+  that domain until the batch lands or the sensor times out (`arrival.timeout_minutes`).
+- Without the `docker` group, the stack also runs on rootless podman through its Docker API
+  socket: `systemctl --user start podman.socket` and
+  `DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock docker compose up -d`. Container
+  users then map to subordinate uids, so files written into bind mounts (logs, data, dbt target)
+  are not owned by your user.
 - The warehouse init script (roles `gold_reader`, `analyst`) only runs on a fresh volume:
   `make clean` first if the warehouse was created before.

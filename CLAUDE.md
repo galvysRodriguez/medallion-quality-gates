@@ -54,5 +54,6 @@ cd dbt && ../.venv/bin/dbt parse --profiles-dir .
 - The user was not in the `docker` group at creation. Rootless `podman` works without it; images are fully qualified (`docker.io/...`) for podman's short-name policy.
 - In containers, `PYTHONPATH=/opt/airflow/include` and `PIPELINE_DATA_DIR=/opt/airflow/data`. Tests set `PIPELINE_DATA_DIR` to a temp dir in `tests/conftest.py` before importing `pipeline.config`, whose paths are module-level constants.
 - `docker/warehouse/init.sql` (roles `gold_reader`, `analyst`) runs only on a fresh warehouse volume.
-- Airflow 3.3 APIs: `DagBag` lives in `airflow.dag_processing.dagbag` (no `include_examples`), `AirflowFailException` in `airflow.sdk.exceptions`. Running the image as a non-default uid needs `HOME=/home/airflow`, because packages are in the airflow user site.
+- Airflow 3.3 APIs: `DagBag` lives in `airflow.dag_processing.dagbag` (no `include_examples`), `AirflowFailException` in `airflow.sdk.exceptions`. Running the image as a non-default uid needs `HOME=/home/airflow`, because packages are in the airflow user site. The entrypoint only sets it when the uid has no passwd entry, and podman adds one, so `docker-compose.yaml` sets `HOME` explicitly.
+- `max_active_runs=1` per medallion DAG is required: runs of a domain share the bronze, silver and gold_staging schemas. A scheduled run waiting in `wait_for_batch` blocks manual runs of that domain.
 - Stay on dbt-core 1.x (ignore the "dbt v2 is available" banner).
