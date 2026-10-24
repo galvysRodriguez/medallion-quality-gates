@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -19,6 +19,8 @@ REPORTS_DIR = DATA_DIR / "reports"
 DBT_PROJECT_DIR = Path(os.environ.get("DBT_PROJECT_DIR", PROJECT_ROOT / "dbt"))
 
 SUPPORTED_FORMATS = ("csv", "json", "jsonl")
+# Contract column types; anything but text gets a bronze `castable` rule (Postgres type names).
+COLUMN_TYPES = ("text", "integer", "numeric", "date", "timestamptz", "boolean")
 LAYERS = ("bronze", "silver", "gold")
 
 _IDENTIFIER = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -36,6 +38,12 @@ class Entity:
     file: str
     format: str
     columns: tuple[str, ...]
+    column_types: dict[str, str] = field(default_factory=dict)  # missing = text
+    required: frozenset[str] = frozenset()  # columns that must be non-null
+    description: str = ""
+
+    def type_of(self, column: str) -> str:
+        return self.column_types.get(column, "text")
 
 
 @dataclass(frozen=True)
@@ -90,6 +98,37 @@ def _identifier(value: str, what: str, source: Path) -> str:
     return value
 
 
+def _parse_columns(spec, where: str) -> tuple[tuple[str, ...], dict[str, str], frozenset[str]]:
+    """Columns as a list of names (all optional text) or a mapping:
+
+        columns:
+          account_id: {type: text, required: true}
+          credit_limit: numeric
+          customer_name: text
+    """
+    if isinstance(spec, list):
+        spec = {name: "text" for name in spec}
+    if not isinstance(spec, dict) or not spec:
+        raise ConfigError(f"{where}: declares no columns")
+    types, required = {}, set()
+    for name, column in spec.items():
+        if not isinstance(name, str) or not _IDENTIFIER.match(name):
+            raise ConfigError(f"{where}: invalid column {name!r} (lowercase snake_case expected)")
+        if isinstance(column, str):
+            column = {"type": column}
+        column = column or {}
+        unknown = set(column) - {"type", "required"}
+        if unknown:
+            raise ConfigError(f"{where}.{name}: unknown setting(s) {', '.join(sorted(unknown))}")
+        col_type = column.get("type", "text")
+        if col_type not in COLUMN_TYPES:
+            raise ConfigError(f"{where}.{name}: unsupported type {col_type!r}; use one of {', '.join(COLUMN_TYPES)}")
+        types[name] = col_type
+        if column.get("required"):
+            required.add(name)
+    return tuple(spec), types, frozenset(required)
+
+
 def load_domain_file(path: Path) -> Domain:
     spec = yaml.safe_load(path.read_text()) or {}
     name = _identifier(spec.get("domain", path.stem), "domain", path)
@@ -99,10 +138,10 @@ def load_domain_file(path: Path) -> Domain:
         fmt = entity.get("format")
         if fmt not in SUPPORTED_FORMATS:
             raise ConfigError(f"{path.name}: entity {entity_name!r} has unsupported format {fmt!r}")
-        columns = tuple(_identifier(c, "column", path) for c in entity.get("columns") or [])
-        if not columns:
-            raise ConfigError(f"{path.name}: entity {entity_name!r} declares no columns")
-        entities[entity_name] = Entity(entity_name, entity["file"], fmt, columns)
+        columns, types, required = _parse_columns(entity.get("columns"), f"{path.name}: {entity_name}")
+        entities[entity_name] = Entity(
+            entity_name, entity["file"], fmt, columns, types, required, entity.get("description", "")
+        )
     if not entities:
         raise ConfigError(f"{path.name}: no entities declared")
     arrival_spec = spec.get("arrival") or {}

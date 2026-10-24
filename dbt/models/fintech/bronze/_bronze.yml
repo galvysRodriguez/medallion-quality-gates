@@ -1,44 +1,63 @@
+# GENERATED from include/domains/fintech.yml by `python -m pipeline scaffold` — do not edit.
+
 version: 2
-
-# Bronze rules: the batch is complete and every value can be typed. Nothing else.
 models:
-  - name: brz_fintech__accounts
-    description: Current landing batch of accounts, raw text.
+- name: brz_fintech__accounts
+  description: Current landing batch of accounts (accounts.csv), raw text. Customer accounts, full snapshot.
+  data_tests:
+  - row_count_between:
+      name: fintech_bronze_accounts_not_empty
+      description: A batch without accounts means the extract failed upstream.
+      arguments:
+        min_value: 1
+  columns:
+  - name: account_id
     data_tests:
-      - row_count_between:
-          name: fintech_bronze_accounts_not_empty
-          description: A batch without accounts means the extract failed upstream.
-          arguments: {min_value: 1}
-    columns:
-      - name: account_id
-        data_tests:
-          - not_null: {name: fintech_bronze_account_id_present}
-      - name: credit_limit
-        data_tests:
-          - castable: {name: fintech_bronze_credit_limit_is_numeric, arguments: {to: numeric}}
-      - name: opened_at
-        data_tests:
-          - castable: {name: fintech_bronze_opened_at_is_date, arguments: {to: date}}
-
-  - name: brz_fintech__transactions
-    description: Current landing batch of transactions, raw text.
+    - not_null:
+        name: fintech_bronze_accounts_account_id_present
+  - name: opened_at
     data_tests:
-      - row_count_between:
-          name: fintech_bronze_transactions_not_empty
-          description: Every daily batch must contain transactions.
-          arguments: {min_value: 1}
-    columns:
-      - name: transaction_id
-        data_tests:
-          - not_null: {name: fintech_bronze_txn_id_present}
-      - name: account_id
-        data_tests:
-          - not_null: {name: fintech_bronze_txn_account_present}
-      - name: amount
-        data_tests:
-          - not_null: {name: fintech_bronze_txn_amount_present}
-          - castable: {name: fintech_bronze_txn_amount_is_numeric, arguments: {to: numeric}}
-      - name: txn_ts
-        data_tests:
-          - not_null: {name: fintech_bronze_txn_ts_present}
-          - castable: {name: fintech_bronze_txn_ts_is_timestamp, arguments: {to: timestamptz}}
+    - castable:
+        name: fintech_bronze_accounts_opened_at_is_date
+        arguments:
+          to: date
+  - name: credit_limit
+    data_tests:
+    - castable:
+        name: fintech_bronze_accounts_credit_limit_is_numeric
+        arguments:
+          to: numeric
+- name: brz_fintech__transactions
+  description: Current landing batch of transactions (transactions.jsonl), raw text. Money movements of
+    the day.
+  data_tests:
+  - row_count_between:
+      name: fintech_bronze_transactions_not_empty
+      description: A batch without transactions means the extract failed upstream.
+      arguments:
+        min_value: 1
+  columns:
+  - name: transaction_id
+    data_tests:
+    - not_null:
+        name: fintech_bronze_transactions_transaction_id_present
+  - name: account_id
+    data_tests:
+    - not_null:
+        name: fintech_bronze_transactions_account_id_present
+  - name: txn_ts
+    data_tests:
+    - not_null:
+        name: fintech_bronze_transactions_txn_ts_present
+    - castable:
+        name: fintech_bronze_transactions_txn_ts_is_timestamptz
+        arguments:
+          to: timestamptz
+  - name: amount
+    data_tests:
+    - not_null:
+        name: fintech_bronze_transactions_amount_present
+    - castable:
+        name: fintech_bronze_transactions_amount_is_numeric
+        arguments:
+          to: numeric

@@ -1,7 +1,6 @@
 domain: streaming
 description: Video/audio streaming — subscribers, content catalog and playback events.
 schedule: "@daily"
-# The batch is complete when the producer writes the marker; wait up to the timeout for it.
 arrival:
   marker: _SUCCESS
   timeout_minutes: 360
@@ -9,14 +8,34 @@ arrival:
   batch_lag_days: 1
 entities:
   users:
+    description: Subscribers, full snapshot.
     file: users.json
     format: json
-    columns: [user_id, country, plan, signup_date]
+    columns:
+      user_id: {type: text, required: true}
+      country: text
+      plan: text
+      signup_date: date
   content:
+    description: Content catalog, full snapshot.
     file: content.csv
     format: csv
-    columns: [content_id, title, content_type, duration_seconds, release_date]
+    columns:
+      content_id: {type: text, required: true}
+      title: text
+      content_type: text
+      duration_seconds: {type: integer, required: true}
+      release_date: date
   playback_events:
+    description: Player events of the day.
     file: playback_events.jsonl
     format: jsonl
-    columns: [event_id, user_id, content_id, event_ts, event_type, position_seconds, watch_seconds, device]
+    columns:
+      event_id: {type: text, required: true}
+      user_id: {type: text, required: true}
+      content_id: {type: text, required: true}
+      event_ts: {type: timestamptz, required: true}
+      event_type: text
+      position_seconds: integer
+      watch_seconds: integer
+      device: text

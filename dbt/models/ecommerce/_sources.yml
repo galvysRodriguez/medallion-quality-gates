@@ -1,11 +1,13 @@
-version: 2
+# GENERATED from include/domains/ecommerce.yml by `python -m pipeline scaffold` — do not edit.
 
+version: 2
 sources:
-  - name: ecommerce_raw
-    description: Landing batches loaded as text by include/pipeline/loader.py.
-    schema: ecommerce_raw
-    tables:
-      - name: customers
-      - name: products
-      - name: orders
-      - name: order_items
+- name: ecommerce_raw
+  description: Landing batches loaded as text by include/pipeline/loader.py (append-only, one _batch_id
+    per load).
+  schema: ecommerce_raw
+  tables:
+  - name: customers
+  - name: products
+  - name: orders
+  - name: order_items

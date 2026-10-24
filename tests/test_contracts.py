@@ -5,7 +5,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from pipeline.config import DBT_PROJECT_DIR, LAYERS, load_domains
+from pipeline import scaffold
+from pipeline.config import DBT_PROJECT_DIR, LAYERS, ConfigError, load_domain_file, load_domains
 from pipeline.generators import GENERATORS
 
 DOMAINS = load_domains()
@@ -72,3 +73,34 @@ def test_each_domain_covers_every_stage():
     for domain, gen in GENERATORS.items():
         stages = {s.expected_stage for s in gen.scenarios().values()}
         assert stages == {"load", "bronze", "silver", "gold"}, f"{domain} only exercises {stages}"
+
+
+@pytest.mark.parametrize("domain", sorted(DOMAINS))
+def test_generated_bronze_matches_the_contract(domain):
+    stale = scaffold.stale_files(DOMAINS[domain])
+    assert not stale, f"out of date: {stale} — run `python -m pipeline scaffold`"
+
+
+def test_scaffold_derives_bronze_rules_from_column_types(tmp_path):
+    path = tmp_path / "shop.yml"
+    path.write_text(
+        "domain: shop\nentities:\n  sales:\n    file: sales.csv\n    format: csv\n    columns:\n"
+        "      sale_id: {type: text, required: true}\n      amount: numeric\n      note: text\n"
+    )
+    domain = load_domain_file(path)
+    scaffold.write(domain, tmp_path / "dbt")
+    bronze = yaml.safe_load((tmp_path / "dbt/models/shop/bronze/_bronze.yml").read_text())
+    (model,) = bronze["models"]
+    assert model["name"] == "brz_shop__sales"
+    rules = {next(iter(t.values()))["name"] for c in model["columns"] for t in c["data_tests"]}
+    assert rules == {"shop_bronze_sales_sale_id_present", "shop_bronze_sales_amount_is_numeric"}
+    assert (tmp_path / "dbt/models/shop/bronze/brz_shop__sales.sql").is_file()
+    assert (tmp_path / "dbt/models/shop/silver").is_dir()
+    assert scaffold.stale_files(domain, tmp_path / "dbt") == []
+
+
+def test_unknown_column_type_is_rejected(tmp_path):
+    path = tmp_path / "x.yml"
+    path.write_text("domain: x\nentities:\n  a: {file: a.csv, format: csv, columns: {id: uuid}}\n")
+    with pytest.raises(ConfigError, match="unsupported type"):
+        load_domain_file(path)

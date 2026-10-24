@@ -1,7 +1,6 @@
 domain: ecommerce
 description: Online store — customers, product catalog, orders and order lines.
 schedule: "@daily"
-# The batch is complete when the producer writes the marker; wait up to the timeout for it.
 arrival:
   marker: _SUCCESS
   timeout_minutes: 360
@@ -9,18 +8,43 @@ arrival:
   batch_lag_days: 1
 entities:
   customers:
+    description: Registered customers, full snapshot.
     file: customers.csv
     format: csv
-    columns: [customer_id, email, country, signup_date]
+    columns:
+      customer_id: {type: text, required: true}
+      email: text
+      country: text
+      signup_date: date
   products:
+    description: Product catalog, full snapshot.
     file: products.json
     format: json
-    columns: [sku, name, category, unit_price, active]
+    columns:
+      sku: {type: text, required: true}
+      name: text
+      category: text
+      unit_price: numeric
+      active: boolean
   orders:
+    description: Order headers placed during the day.
     file: orders.csv
     format: csv
-    columns: [order_id, customer_id, order_ts, status, shipping_country, total_amount]
+    columns:
+      order_id: {type: text, required: true}
+      customer_id: text
+      order_ts: timestamptz
+      status: text
+      shipping_country: text
+      total_amount: {type: numeric, required: true}
   order_items:
+    description: Order lines of the day's orders.
     file: order_items.jsonl
     format: jsonl
-    columns: [order_id, line_number, sku, quantity, unit_price, discount]
+    columns:
+      order_id: {type: text, required: true}
+      line_number: integer
+      sku: text
+      quantity: {type: integer, required: true}
+      unit_price: numeric
+      discount: numeric

@@ -1,10 +1,12 @@
-version: 2
+# GENERATED from include/domains/streaming.yml by `python -m pipeline scaffold` — do not edit.
 
+version: 2
 sources:
-  - name: streaming_raw
-    description: Landing batches loaded as text by include/pipeline/loader.py.
-    schema: streaming_raw
-    tables:
-      - name: users
-      - name: content
-      - name: playback_events
+- name: streaming_raw
+  description: Landing batches loaded as text by include/pipeline/loader.py (append-only, one _batch_id
+    per load).
+  schema: streaming_raw
+  tables:
+  - name: users
+  - name: content
+  - name: playback_events

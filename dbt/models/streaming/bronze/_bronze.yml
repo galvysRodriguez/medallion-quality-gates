@@ -1,43 +1,92 @@
+# GENERATED from include/domains/streaming.yml by `python -m pipeline scaffold` — do not edit.
+
 version: 2
-
 models:
-  - name: brz_streaming__users
+- name: brz_streaming__users
+  description: Current landing batch of users (users.json), raw text. Subscribers, full snapshot.
+  data_tests:
+  - row_count_between:
+      name: streaming_bronze_users_not_empty
+      description: A batch without users means the extract failed upstream.
+      arguments:
+        min_value: 1
+  columns:
+  - name: user_id
     data_tests:
-      - row_count_between: {name: streaming_bronze_users_not_empty, arguments: {min_value: 1}}
-    columns:
-      - name: user_id
-        data_tests: [{not_null: {name: streaming_bronze_user_id_present}}]
-      - name: signup_date
-        data_tests: [{castable: {name: streaming_bronze_signup_date_is_date, arguments: {to: date}}}]
-
-  - name: brz_streaming__content
+    - not_null:
+        name: streaming_bronze_users_user_id_present
+  - name: signup_date
     data_tests:
-      - row_count_between: {name: streaming_bronze_content_not_empty, arguments: {min_value: 1}}
-    columns:
-      - name: content_id
-        data_tests: [{not_null: {name: streaming_bronze_content_id_present}}]
-      - name: duration_seconds
-        data_tests:
-          - not_null: {name: streaming_bronze_duration_present}
-          - castable: {name: streaming_bronze_duration_is_integer, arguments: {to: integer}}
-      - name: release_date
-        data_tests: [{castable: {name: streaming_bronze_release_date_is_date, arguments: {to: date}}}]
-
-  - name: brz_streaming__playback_events
+    - castable:
+        name: streaming_bronze_users_signup_date_is_date
+        arguments:
+          to: date
+- name: brz_streaming__content
+  description: Current landing batch of content (content.csv), raw text. Content catalog, full snapshot.
+  data_tests:
+  - row_count_between:
+      name: streaming_bronze_content_not_empty
+      description: A batch without content means the extract failed upstream.
+      arguments:
+        min_value: 1
+  columns:
+  - name: content_id
     data_tests:
-      - row_count_between: {name: streaming_bronze_playback_events_not_empty, arguments: {min_value: 1}}
-    columns:
-      - name: event_id
-        data_tests: [{not_null: {name: streaming_bronze_event_id_present}}]
-      - name: user_id
-        data_tests: [{not_null: {name: streaming_bronze_event_user_present}}]
-      - name: content_id
-        data_tests: [{not_null: {name: streaming_bronze_event_content_present}}]
-      - name: event_ts
-        data_tests:
-          - not_null: {name: streaming_bronze_event_ts_present}
-          - castable: {name: streaming_bronze_event_ts_is_timestamp, arguments: {to: timestamptz}}
-      - name: position_seconds
-        data_tests: [{castable: {name: streaming_bronze_event_position_is_integer, arguments: {to: integer}}}]
-      - name: watch_seconds
-        data_tests: [{castable: {name: streaming_bronze_event_watch_seconds_is_integer, arguments: {to: integer}}}]
+    - not_null:
+        name: streaming_bronze_content_content_id_present
+  - name: duration_seconds
+    data_tests:
+    - not_null:
+        name: streaming_bronze_content_duration_seconds_present
+    - castable:
+        name: streaming_bronze_content_duration_seconds_is_integer
+        arguments:
+          to: integer
+  - name: release_date
+    data_tests:
+    - castable:
+        name: streaming_bronze_content_release_date_is_date
+        arguments:
+          to: date
+- name: brz_streaming__playback_events
+  description: Current landing batch of playback_events (playback_events.jsonl), raw text. Player events
+    of the day.
+  data_tests:
+  - row_count_between:
+      name: streaming_bronze_playback_events_not_empty
+      description: A batch without playback_events means the extract failed upstream.
+      arguments:
+        min_value: 1
+  columns:
+  - name: event_id
+    data_tests:
+    - not_null:
+        name: streaming_bronze_playback_events_event_id_present
+  - name: user_id
+    data_tests:
+    - not_null:
+        name: streaming_bronze_playback_events_user_id_present
+  - name: content_id
+    data_tests:
+    - not_null:
+        name: streaming_bronze_playback_events_content_id_present
+  - name: event_ts
+    data_tests:
+    - not_null:
+        name: streaming_bronze_playback_events_event_ts_present
+    - castable:
+        name: streaming_bronze_playback_events_event_ts_is_timestamptz
+        arguments:
+          to: timestamptz
+  - name: position_seconds
+    data_tests:
+    - castable:
+        name: streaming_bronze_playback_events_position_seconds_is_integer
+        arguments:
+          to: integer
+  - name: watch_seconds
+    data_tests:
+    - castable:
+        name: streaming_bronze_playback_events_watch_seconds_is_integer
+        arguments:
+          to: integer

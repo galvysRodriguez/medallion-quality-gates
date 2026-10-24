@@ -1,6 +1,9 @@
 # Data contract for the fintech domain: what lands in data/landing/fintech/<batch>/.
-# The loader rejects a batch whose files are missing or lack any of these columns;
-# everything else (types, ranges, business rules) is enforced by dbt tests.
+#
+# The loader rejects a batch whose files are missing, unparsable or lack a column.
+# Column types and `required` generate the bronze rules (`python -m pipeline scaffold`):
+# required -> not null, non-text type -> value castable to it, every entity -> not empty.
+# Business rules (silver, gold) are written by hand in dbt.
 domain: fintech
 description: Core banking — customer accounts and their monetary transactions.
 schedule: "@daily"
@@ -12,10 +15,27 @@ arrival:
   batch_lag_days: 1
 entities:
   accounts:
+    description: Customer accounts, full snapshot.
     file: accounts.csv
     format: csv
-    columns: [account_id, customer_name, country, currency, opened_at, status, credit_limit]
+    columns:
+      account_id: {type: text, required: true}
+      customer_name: text
+      country: text
+      currency: text
+      opened_at: date
+      status: text
+      credit_limit: numeric
   transactions:
+    description: Money movements of the day.
     file: transactions.jsonl
     format: jsonl
-    columns: [transaction_id, account_id, txn_ts, txn_type, amount, currency, merchant_category, status]
+    columns:
+      transaction_id: {type: text, required: true}
+      account_id: {type: text, required: true}
+      txn_ts: {type: timestamptz, required: true}
+      txn_type: text
+      amount: {type: numeric, required: true}
+      currency: text
+      merchant_category: text
+      status: text

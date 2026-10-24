@@ -1,4 +1,4 @@
-"""CLI: python -m pipeline {domains,scenarios,generate,run,rollback} ...
+"""CLI: python -m pipeline {domains,scaffold,scenarios,generate,run,rollback} ...
 
 Run from the project root with include/ on PYTHONPATH (the Makefile does this).
 """
@@ -10,7 +10,7 @@ import json
 import logging
 import sys
 
-from pipeline import orchestration
+from pipeline import orchestration, scaffold
 from pipeline.config import load_domains
 from pipeline.dbt_runner import QualityGateError
 from pipeline.generators import GENERATORS, generate
@@ -21,6 +21,10 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("domains", help="list configured domains and their entities")
+
+    p = sub.add_parser("scaffold", help="generate sources + bronze models/rules from the data contracts")
+    p.add_argument("domain", nargs="?", help="default: every domain")
+    p.add_argument("--check", action="store_true", help="only report out-of-date files (exit 1 if any)")
 
     p = sub.add_parser("scenarios", help="list corruption scenarios and the rule that must catch them")
     p.add_argument("domain", nargs="?")
@@ -47,7 +51,19 @@ def main(argv: list[str] | None = None) -> int:
         for domain in load_domains().values():
             print(f"{domain.name}: {domain.description}")
             for e in domain.entities.values():
-                print(f"  - {e.name} ({e.file}, {e.format}): {', '.join(e.columns)}")
+                cols = ", ".join(f"{c}:{e.type_of(c)}{'!' if c in e.required else ''}" for c in e.columns)
+                print(f"  - {e.name} ({e.file}, {e.format}): {cols}")
+    elif args.command == "scaffold":
+        domains = [d for d in load_domains().values() if not args.domain or d.name == args.domain]
+        if not domains:
+            parser.error(f"unknown domain {args.domain!r}")
+        stale = {d.name: (scaffold.stale_files(d) if args.check else scaffold.write(d)) for d in domains}
+        for name, paths in stale.items():
+            for path in paths:
+                print(f"{'out of date' if args.check else 'wrote'}: dbt/{path}")
+        if args.check and any(stale.values()):
+            print("run `python -m pipeline scaffold` to regenerate")
+            return 1
     elif args.command == "scenarios":
         for name, gen in GENERATORS.items():
             if args.domain and name != args.domain:

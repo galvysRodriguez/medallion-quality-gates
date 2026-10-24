@@ -1,5 +1,5 @@
 .PHONY: build up down restart logs ps shell clean venv \
-        domains scenarios generate pipeline demo \
+        domains scaffold scenarios generate pipeline rollback demo \
         test test-integration test-dags dbt-debug dbt-docs
 
 # Sample-data / pipeline parameters: make generate DOMAIN=ecommerce SCENARIO=invalid_emails
@@ -40,6 +40,9 @@ venv:       ## Create a local .venv with dbt, the pipeline package deps and pyte
 domains:    ## List data contracts
 	$(PIPELINE) domains
 
+scaffold:   ## Regenerate sources + bronze models/rules from include/domains/*.yml (DOMAIN= for one)
+	$(LOCAL) -m pipeline scaffold $(if $(filter command line,$(origin DOMAIN)),$(DOMAIN))
+
 scenarios:  ## List corruption scenarios and the rule expected to stop each one
 	$(PIPELINE) scenarios
 
@@ -52,6 +55,9 @@ pipeline:   ## Run the medallion pipeline for DOMAIN/BATCH outside Airflow
 BAD_fintech   = negative_amounts
 BAD_ecommerce = order_total_mismatch
 BAD_streaming = impossible_watch_time
+
+rollback:   ## Remove a published batch from <DOMAIN>_gold: make rollback DOMAIN=fintech BATCH=2026-10-22
+	$(PIPELINE) rollback $(DOMAIN) --batch $(BATCH)
 
 demo:       ## Publish a clean batch, then watch a corrupted one (SCENARIO or a default) get blocked
 	$(MAKE) generate pipeline SCENARIO=clean

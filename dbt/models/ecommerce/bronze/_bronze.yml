@@ -1,52 +1,117 @@
+# GENERATED from include/domains/ecommerce.yml by `python -m pipeline scaffold` — do not edit.
+
 version: 2
-
 models:
-  - name: brz_ecommerce__customers
+- name: brz_ecommerce__customers
+  description: Current landing batch of customers (customers.csv), raw text. Registered customers, full
+    snapshot.
+  data_tests:
+  - row_count_between:
+      name: ecommerce_bronze_customers_not_empty
+      description: A batch without customers means the extract failed upstream.
+      arguments:
+        min_value: 1
+  columns:
+  - name: customer_id
     data_tests:
-      - row_count_between: {name: ecommerce_bronze_customers_not_empty, arguments: {min_value: 1}}
-    columns:
-      - name: customer_id
-        data_tests: [{not_null: {name: ecommerce_bronze_customer_id_present}}]
-      - name: signup_date
-        data_tests: [{castable: {name: ecommerce_bronze_signup_date_is_date, arguments: {to: date}}}]
-
-  - name: brz_ecommerce__products
+    - not_null:
+        name: ecommerce_bronze_customers_customer_id_present
+  - name: signup_date
     data_tests:
-      - row_count_between: {name: ecommerce_bronze_products_not_empty, arguments: {min_value: 1}}
-    columns:
-      - name: sku
-        data_tests: [{not_null: {name: ecommerce_bronze_sku_present}}]
-      - name: unit_price
-        data_tests: [{castable: {name: ecommerce_bronze_product_price_is_numeric, arguments: {to: numeric}}}]
-      - name: active
-        data_tests: [{castable: {name: ecommerce_bronze_product_active_is_boolean, arguments: {to: boolean}}}]
-
-  - name: brz_ecommerce__orders
+    - castable:
+        name: ecommerce_bronze_customers_signup_date_is_date
+        arguments:
+          to: date
+- name: brz_ecommerce__products
+  description: Current landing batch of products (products.json), raw text. Product catalog, full snapshot.
+  data_tests:
+  - row_count_between:
+      name: ecommerce_bronze_products_not_empty
+      description: A batch without products means the extract failed upstream.
+      arguments:
+        min_value: 1
+  columns:
+  - name: sku
     data_tests:
-      - row_count_between: {name: ecommerce_bronze_orders_not_empty, arguments: {min_value: 1}}
-    columns:
-      - name: order_id
-        data_tests: [{not_null: {name: ecommerce_bronze_order_id_present}}]
-      - name: order_ts
-        data_tests: [{castable: {name: ecommerce_bronze_order_ts_is_timestamp, arguments: {to: timestamptz}}}]
-      - name: total_amount
-        data_tests:
-          - not_null: {name: ecommerce_bronze_order_total_present}
-          - castable: {name: ecommerce_bronze_order_total_is_numeric, arguments: {to: numeric}}
-
-  - name: brz_ecommerce__order_items
+    - not_null:
+        name: ecommerce_bronze_products_sku_present
+  - name: unit_price
     data_tests:
-      - row_count_between: {name: ecommerce_bronze_order_items_not_empty, arguments: {min_value: 1}}
-    columns:
-      - name: order_id
-        data_tests: [{not_null: {name: ecommerce_bronze_item_order_present}}]
-      - name: line_number
-        data_tests: [{castable: {name: ecommerce_bronze_item_line_is_integer, arguments: {to: integer}}}]
-      - name: quantity
-        data_tests:
-          - not_null: {name: ecommerce_bronze_item_quantity_present}
-          - castable: {name: ecommerce_bronze_item_quantity_is_integer, arguments: {to: integer}}
-      - name: unit_price
-        data_tests: [{castable: {name: ecommerce_bronze_item_price_is_numeric, arguments: {to: numeric}}}]
-      - name: discount
-        data_tests: [{castable: {name: ecommerce_bronze_item_discount_is_numeric, arguments: {to: numeric}}}]
+    - castable:
+        name: ecommerce_bronze_products_unit_price_is_numeric
+        arguments:
+          to: numeric
+  - name: active
+    data_tests:
+    - castable:
+        name: ecommerce_bronze_products_active_is_boolean
+        arguments:
+          to: boolean
+- name: brz_ecommerce__orders
+  description: Current landing batch of orders (orders.csv), raw text. Order headers placed during the
+    day.
+  data_tests:
+  - row_count_between:
+      name: ecommerce_bronze_orders_not_empty
+      description: A batch without orders means the extract failed upstream.
+      arguments:
+        min_value: 1
+  columns:
+  - name: order_id
+    data_tests:
+    - not_null:
+        name: ecommerce_bronze_orders_order_id_present
+  - name: order_ts
+    data_tests:
+    - castable:
+        name: ecommerce_bronze_orders_order_ts_is_timestamptz
+        arguments:
+          to: timestamptz
+  - name: total_amount
+    data_tests:
+    - not_null:
+        name: ecommerce_bronze_orders_total_amount_present
+    - castable:
+        name: ecommerce_bronze_orders_total_amount_is_numeric
+        arguments:
+          to: numeric
+- name: brz_ecommerce__order_items
+  description: Current landing batch of order_items (order_items.jsonl), raw text. Order lines of the
+    day's orders.
+  data_tests:
+  - row_count_between:
+      name: ecommerce_bronze_order_items_not_empty
+      description: A batch without order_items means the extract failed upstream.
+      arguments:
+        min_value: 1
+  columns:
+  - name: order_id
+    data_tests:
+    - not_null:
+        name: ecommerce_bronze_order_items_order_id_present
+  - name: line_number
+    data_tests:
+    - castable:
+        name: ecommerce_bronze_order_items_line_number_is_integer
+        arguments:
+          to: integer
+  - name: quantity
+    data_tests:
+    - not_null:
+        name: ecommerce_bronze_order_items_quantity_present
+    - castable:
+        name: ecommerce_bronze_order_items_quantity_is_integer
+        arguments:
+          to: integer
+  - name: unit_price
+    data_tests:
+    - castable:
+        name: ecommerce_bronze_order_items_unit_price_is_numeric
+        arguments:
+          to: numeric
+  - name: discount
+    data_tests:
+    - castable:
+        name: ecommerce_bronze_order_items_discount_is_numeric
+        arguments:
+          to: numeric

@@ -144,7 +144,7 @@ class EcommerceGenerator(DomainGenerator):
             Scenario("zero_quantity", "order lines with quantity 0",
                      "silver", "ecommerce_item_quantity_valid", zero_quantity),
             Scenario("fractional_quantity", "quantity '1.5' that is not an integer",
-                     "bronze", "ecommerce_bronze_item_quantity_is_integer", fractional_quantity),
+                     "bronze", "ecommerce_bronze_order_items_quantity_is_integer", fractional_quantity),
             Scenario("excessive_discount", "discount larger than the line amount",
                      "silver", "ecommerce_item_discount_valid", excessive_discount),
             Scenario("order_total_mismatch", "order total differs from the sum of its lines",
