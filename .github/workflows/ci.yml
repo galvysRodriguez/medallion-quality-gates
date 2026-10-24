@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  AIRFLOW_VERSION: "3.3.2"
+  PYTHONPATH: include
+  DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
+
+jobs:
+  unit:
+    name: Unit tests, contracts, dbt parse
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            docker/airflow/requirements-dbt.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Generated dbt files match the data contracts
+        run: python -m pipeline scaffold --check
+      - name: Unit tests
+        run: pytest -m "not integration"
+      - name: dbt parse
+        working-directory: dbt
+        run: dbt parse --profiles-dir .
+
+  integration:
+    name: Quality gates end to end (Postgres 16)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      warehouse:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dbt
+          POSTGRES_PASSWORD: dbt
+          POSTGRES_DB: warehouse
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U dbt -d warehouse"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      WAREHOUSE_HOST: localhost
+      WAREHOUSE_PORT: "5433"
+      WAREHOUSE_USER: dbt
+      WAREHOUSE_PASSWORD: dbt
+      WAREHOUSE_DB: warehouse
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            docker/airflow/requirements-dbt.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Warehouse roles (docker/warehouse/init.sql)
+        run: PGPASSWORD=dbt psql -h localhost -p 5433 -U dbt -d warehouse -f docker/warehouse/init.sql
+      - name: Every scenario is stopped at its stage by its rule
+        run: pytest -m integration
+      - name: Consumer role can read gold
+        run: PGPASSWORD=analyst psql -h localhost -p 5433 -U analyst -d warehouse -c "select count(*) from fintech_gold.gld_fintech__daily_summary"
+
+  dags:
+    name: DAG integrity (Airflow 3.3.2)
+    runs-on: ubuntu-latest
+    env:
+      AIRFLOW_HOME: ${{ github.workspace }}/.airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_FOLDER: ${{ github.workspace }}/dags
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: docker/airflow/requirements.txt
+      - name: Install Airflow with its constraints
+        run: |
+          pip install "apache-airflow==${AIRFLOW_VERSION}" -r docker/airflow/requirements.txt \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
+      - run: airflow db migrate
+      - run: pytest tests/test_dags.py
+
+  image:
+    name: Airflow image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t airflow-dbt:ci docker/airflow
+      - name: dbt is available in the image
+        run: docker run --rm --entrypoint /opt/airflow/dbt_venv/bin/dbt airflow-dbt:ci --version
